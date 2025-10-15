@@ -45,7 +45,7 @@ impl Order {
 pub struct OrderLeg {
     pub order_leg_id: i64,
     pub instrument_id: i64,
-    pub ratio: u32,
+    pub ratio: i32,
 }
 
 #[derive(Clone)]

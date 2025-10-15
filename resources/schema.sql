@@ -38,8 +38,8 @@ CREATE UNIQUE INDEX unq_accountKey_extOrder ON order_base (accountKey, extOrderI
 CREATE TABLE IF NOT EXISTS order_leg (
       orderLegId BIGSERIAL PRIMARY KEY,
       orderId BIGINT NOT NULL REFERENCES order_base,
-      instrumentId BIGINT NOT NULL REFERENCES instrument,
-      ratio BIGINT NOT NULL
+      instrumentId BIGINT NOT NULL, --  REFERENCES instrument,
+      ratio INT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS order_status (

@@ -31,6 +31,21 @@ impl<'b> DaoTransaction<'b> {
         let order_id =  row.get("orderId");
         order_state.order.order_id = order_id;
 
+        for leg in &order_state.order.legs {
+            match self.transaction.query(
+                "INSERT INTO order_leg \
+            (orderId, instrumentId, ratio) \
+            VALUES ($1, $2, $3) ",
+                &[&order_id,
+                    &leg.instrument_id,
+                    &leg.ratio
+                ]
+            ).await {
+                Ok(x) => x,
+                Err(y) => { error!("save_order leg {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
+            };
+        }
+
         match self.transaction.execute(
             "INSERT INTO order_state \
                 (orderId, orderStatus, updateTime, versionNumber) \
@@ -52,23 +67,26 @@ impl<'b> DaoTransaction<'b> {
         Ok(order_state)
     }
 
-    pub async fn update_order(&self, order_state: OrderState) -> Result<(), DaoError> {
+    pub async fn update_order(&self, order_state: &mut OrderState) -> Result<(), DaoError> {
+        let next_version_number = order_state.version_number + 1;
         let rows_updated = match self.transaction.execute(
             "UPDATE order_state \
-                set orderStatus = $2, updateTime = $3, versionNumber = $4 + 1 \
-                WHERE orderId = $1 and versionNumber = $4",
-            &[&order_state.order.order_id,
-                     &order_state.order_status.to_string(),
+                set orderStatus = $1, updateTime = $2, versionNumber = $3 \
+                WHERE orderId = $4 and versionNumber = $5",
+            &[&order_state.order_status.to_string(),
                      &order_state.update_time,
-                     &order_state.version_number
+                     &next_version_number,
+                     &order_state.order.order_id,
+                     &order_state.version_number,
             ]
         ).await {
-            Ok(_) => 0,
+            Ok(rows) => rows,
             Err(y) => { error!("update_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
         };
         if rows_updated == 0 {
-            return Err(DaoError::OptimisticLockingFailed{ description: "update order".to_string() });
+            return Err(DaoError::OptimisticLockingFailed{ description: "update order 0 rows modified".to_string() });
         }
+        order_state.version_number = next_version_number;
         self.insert_order_state_history(&order_state).await
     }
 
@@ -133,7 +151,7 @@ fn convert_rows_to_order_states(res: Vec<Row>) -> HashMap<String, OrderState> {
 fn add_leg_to_order_state(order_state: &mut OrderState, row: &Row) {
     let leg = OrderLeg {
         order_leg_id: row.get("orderLegId"),
-        instrument_id: row.get("instrument_id"),
+        instrument_id: row.get("instrumentId"),
         ratio: row.get("ratio"),
     };
     order_state.get_order_mut().add_leg(leg);

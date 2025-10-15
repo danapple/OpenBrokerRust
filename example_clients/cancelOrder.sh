@@ -1,2 +1,2 @@
 #!/bin/bash -e
-./submitOrder.py --price 4.2 --quantity 6 --instrumentId 0
+./cancelOrder.py --accountKey=aaaa --clientOrderId=cust

@@ -57,7 +57,7 @@ pub struct Order {
 pub struct OrderLeg {
     #[serde(rename = "instrumentId")]
     pub instrument_id: i64,
-    pub ratio: u32,
+    pub ratio: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

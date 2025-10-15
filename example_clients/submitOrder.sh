@@ -1,2 +1,2 @@
 #!/bin/bash -e
-./submitOrder.py --price 4.2 --quantity 6 --instrumentId 0
+./submitOrder.py --price 4.2 --quantity 6 --instrumentId 0 --accountKey myaccount

@@ -35,7 +35,7 @@ impl entities::trading::Order {
         Order {
             create_time: self.create_time,
             ext_order_id: Some(self.ext_order_id.clone()),
-            account_key: self.account_key.clone(),
+            account_key: Some(self.account_key.clone()),
             price: self.price,
             quantity: self.quantity,
             legs: order_legs,
@@ -75,7 +75,7 @@ impl Order {
         order_exchange
     }
 
-    pub fn to_entities_order(&self, client_order_id: String, ext_order_id: String) -> entities::trading::Order {
+    pub fn to_entities_order(&self, client_order_id: String) -> entities::trading::Order {
         let mut order_legs: Vec<entities::trading::OrderLeg> = Vec::new();
 
         for leg in self.legs.iter() {
@@ -88,8 +88,8 @@ impl Order {
 
         let order_entity = entities::trading::Order {
             order_id: 0,
-            account_key: self.account_key.clone(),
-            ext_order_id,
+            account_key: self.account_key.clone().unwrap(),
+            ext_order_id: self.ext_order_id.clone().unwrap(),
             client_order_id,
             create_time: current_time_millis(),
             price: self.price,

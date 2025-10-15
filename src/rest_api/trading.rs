@@ -73,7 +73,7 @@ pub struct Order {
     #[serde(default)]
     pub create_time: i64,
     pub ext_order_id: Option<String>,
-    pub account_key: String,
+    pub account_key: Option<String>,
     pub price: f32,
     pub quantity: i32,
     pub legs: Vec<OrderLeg>,
@@ -84,7 +84,7 @@ pub struct Order {
 pub struct OrderLeg {
     //#[serde(deserialize_with = "as_i64")]
     pub instrument_id: i64,
-    pub ratio: u32,
+    pub ratio: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

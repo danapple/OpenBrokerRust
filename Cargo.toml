@@ -12,23 +12,8 @@ serde = { version = "1.0.228", features = ["derive"] }
 url = "2.5.7"
 uuid = { version = "1.18.1", features = ["v4"] }
 log = "0.4.28"
-serde-this-or-that = "0.5.0"
 deadpool-postgres = { version = "0.14", features = ["serde"] }
 tokio-postgres = "0.7.15"
 confik = "0.15.0"
 dotenv = "0.15.0"
-enum_to_enum = "0.1.0"
-futures = "0.3.31"
 postgres-types = { version ="0.2.11", features = ["derive"]  }
-tokio = {  version="1.47.1" , features = ["rt"] }
-serde_json = "1.0.145"
-restapi = "1.1.14"
-#
-#serde = "1.0.106"
-#serde_json = "1.0.51"
-#chrono = { version = "0.4", features = ["serde"] }
-#diesel = { version = "2.3.2", features = ["postgres", "r2d2", "chrono", "uuid"] }
-
-#uuid = { version = "1.18.1", features = ["v4"] }
-#r2d2 = "0.8.8"
-#r2d2-diesel = "1.0.0"

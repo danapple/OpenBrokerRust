@@ -40,7 +40,7 @@ def main(argv):
     cookies = { "customer_key": customer_key }
 
     #path="http://openexchange.eu-central-1.elasticbeanstalk.com/order/" + client_order_id
-    path="http://localhost:8080/accounts/" + accountKey + "/orders"
+    path="http://localhost:8080/accounts/" + accountKey + "/previewOrder"
 
     print ('Requesting at path', path)
     print ('req', req)
