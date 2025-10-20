@@ -17,3 +17,12 @@ tokio-postgres = "0.7.15"
 confik = "0.15.0"
 dotenv = "0.15.0"
 postgres-types = { version ="0.2.11", features = ["derive"]  }
+clap = { version = "4.5.49", features = ["derive"] }
+tokio = { version = "1.12", features = ["full"] }
+tokio-stream = "0.1"
+tokio-tungstenite = "0.23.1"
+anyhow = "1.0"
+futures-util = "0.3"
+romp = "0.5.2"
+async-stomp = "0.6"
+serde_json = "1.0"
