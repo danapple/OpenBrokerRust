@@ -134,6 +134,10 @@ impl<'b> DaoTransaction<'b> {
         };
         Ok(order_state)
     }
+
+    pub(crate) async fn get_order_by_client_order_id(&self, client_order_id: &String) -> Result<Option<OrderState>, DaoError> {
+        todo!()
+    }
 }
 
 fn convert_rows_to_order_states(res: Vec<Row>) -> HashMap<String, OrderState> {

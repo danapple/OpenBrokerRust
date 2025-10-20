@@ -1,4 +1,4 @@
-use crate::rest_api::trading::OrderStatus;
+pub(crate) use crate::rest_api::trading::OrderStatus;
 
 // #[derive(Clone)]
 // pub struct Instrument {

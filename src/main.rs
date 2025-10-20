@@ -73,7 +73,14 @@ async fn main() -> io::Result<()> {
 
     env_logger::init_from_env(Env::default().default_filter_or(config.log_level.clone()));
 
+    let pool = match config.pg.create_pool(None, NoTls) {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let dao = dao::Dao::new(pool);
+    
     let exchange_websocket_client = ExchangeWebsocketClient::new(config.clone(),
+                                                                 dao.clone(),
                                                                  handle_execution, handle_order_state,
                                                                  handle_depth, handle_last_trade);
 
@@ -83,11 +90,6 @@ async fn main() -> io::Result<()> {
     };
 
     exchange_websocket_client.start_exchange_websockets().await;
-
-    let pool = match config.pg.create_pool(None, NoTls) {
-        Ok(x) => x,
-        Err(_) => todo!(),
-    };
 
     info!("About to add instruments");
 
@@ -102,7 +104,6 @@ async fn main() -> io::Result<()> {
     }
     info!("Done adding instruments");
 
-    let dao = dao::Dao::new(pool);
     
     let access_control = AccessControl::new();
 
