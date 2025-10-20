@@ -6,8 +6,8 @@ pub fn connect() -> Message {
     Message::Text("CONNECT\naccept-version:1.2,2.0\n\n\x00".to_string())
 }
 
-pub fn subscribe_message(destination: &str) -> Message {
-    Message::Text(format!("SUBSCRIBE\nid:0\ndestination:{}\nack:auto\n\n\x00", destination))
+pub fn subscribe_message(subscription_id: u32, destination: &str) -> Message {
+    Message::Text(format!("SUBSCRIBE\nid:{}\ndestination:{}\nack:auto\n\n\x00", subscription_id, destination))
 }
 
 pub fn parse_message(message: &String) -> StompMessage {

@@ -6,7 +6,7 @@ use crate::config::BrokerConfig;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use anyhow::Result;
 use futures_util::SinkExt;
-use log::{error, info};
+use log::{debug, error, info};
 use tokio_stream::StreamExt;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
@@ -59,18 +59,21 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
     println!("WebSocket client connected");
     ws_stream.send(stomp::connect()).await?;
 
-    for (destination, func) in unboxed_handlers.iter() {
-        ws_stream.send(stomp::subscribe_message(destination)).await?;
-    }
-
+    let mut subscription_id = 0;
     while let Some(msg) = ws_stream.next().await {
         match msg? {
             Message::Text(text) => {
+                debug!("Received message: {}", text);
                 if text.starts_with("MESSAGE") {
                     let message = parse_message(&text);
                     match unboxed_handlers.get(message.destination.as_str()) {
                         Some(func) => func(&message),
                         _ => {}
+                    }
+                } else if text.starts_with("CONNECTED") {
+                    for (destination, func) in unboxed_handlers.iter() {
+                        ws_stream.send(stomp::subscribe_message(subscription_id, destination)).await?;
+                        subscription_id += 1
                     }
                 }
             }
