@@ -34,7 +34,7 @@ pub struct OrderState {
     #[serde(rename = "orderStatus")]
     pub order_status: OrderStatus,
     #[serde(rename = "remainingQuantity")]
-    pub remaining_quantity: u32,
+    pub remaining_quantity: i32,
     pub order: Order
 }
 

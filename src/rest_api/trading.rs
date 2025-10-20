@@ -63,7 +63,7 @@ pub struct Instrument {
 pub struct OrderState {
     pub update_time: i64,
     pub order_status: OrderStatus,
-    pub remaining_quantity: u32,
+    pub remaining_quantity: i32,
     pub order: Order,
 }
 
@@ -92,7 +92,7 @@ pub struct OrderLeg {
 pub struct Trade {
     pub create_time: SystemTime,
     pub price: f32,
-    pub quantity: u32,
+    pub quantity: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

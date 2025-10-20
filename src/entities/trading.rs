@@ -54,5 +54,5 @@ pub struct Trade {
     pub create_time: i64,
     pub order_leg: OrderLeg,
     pub price: f32,
-    pub quantity: u32,
+    pub quantity: i32,
 }

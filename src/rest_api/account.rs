@@ -5,7 +5,7 @@ use crate::rest_api::trading::Instrument;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Position {
     pub instrument_id: u64,
-    pub quantity: u32,
+    pub quantity: i32,
     pub cost: f64,
 }
 
