@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate actix_web;
 
+use crate::trade_handling::trade_handling::{handle_depth, handle_execution, handle_order_state, handle_last_trade};
+use std::error::Error;
 use actix_web::{
     dev::ServiceResponse,
     http::header,
@@ -29,9 +31,12 @@ use rest_api::trading_api;
 use crate::exchange_interface::exchange_client::ExchangeClient;
 use instrument_manager::InstrumentManager;
 use crate::access_control::AccessControl;
+use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, OrderState};
+use crate::exchange_interface::websocket_client::ExchangeWebsocketClient;
 use crate::persistence::dao;
-use crate::vetting::all_pass_vetter;
 use crate::vetting::all_pass_vetter::{AllPassVetter};
+use crate::websockets::client::StompMessage;
+use crate::websockets::listener::{start_websocket_listener};
 
 mod entities;
 mod config;
@@ -40,6 +45,8 @@ pub(crate) mod instrument_manager;
 mod time;
 mod access_control;
 mod vetting;
+mod websockets;
+mod trade_handling;
 
 fn add_error_header<B>(mut res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
 
@@ -64,6 +71,17 @@ async fn main() -> io::Result<()> {
     };
 
     env_logger::init_from_env(Env::default().default_filter_or(config.log_level.clone()));
+
+    let exchange_websocket_client = ExchangeWebsocketClient::new(config.clone(),
+                                                                 handle_execution, handle_order_state,
+                                                                 handle_depth,handle_last_trade);
+
+    match start_websocket_listener(&config).await {
+        Ok(_) => {},
+        Err(_) => todo!(),
+    };
+
+    exchange_websocket_client.start_exchange_websockets().await;
 
     let pool = match config.pg.create_pool(None, NoTls) {
         Ok(x) => x,
@@ -109,3 +127,4 @@ async fn main() -> io::Result<()> {
         .run()
         .await
 }
+

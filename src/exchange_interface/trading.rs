@@ -1,10 +1,7 @@
 use std::collections::HashMap;
-use std::iter::Map;
-use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
-use crate::rest_api;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[derive(Clone)]
 pub enum OrderStatus {
     #[serde(rename = "OPEN")]
@@ -61,11 +58,56 @@ pub struct OrderLeg {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Trade {
+pub struct Execution {
+    #[serde(rename = "clientOrderId")]
+    pub client_order_id: String,
+    #[serde(rename = "instrumentId")]
+    pub instrument_id: i64,
     #[serde(rename = "createTime")]
-    pub create_time: SystemTime,
+    pub create_time: i64,
     pub price: f32,
-    pub quantity: u32,
+    pub quantity: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LastTrade {
+    #[serde(rename = "senderId")]
+    pub sender_id: String,
+    #[serde(rename = "sequenceNumber")]
+    pub sequence_number: i64,
+    #[serde(rename = "instrumentId")]
+    pub instrument_id: i64,
+    #[serde(rename = "createTime")]
+    pub create_time: i64,
+    pub price: f32,
+    pub quantity: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct MarketDepth {
+    #[serde(rename = "senderId")]
+    pub sender_id: String,
+    #[serde(rename = "sequenceNumber")]
+    pub sequence_number: i64,
+    #[serde(rename = "instrumentId")]
+    pub instrument_id: i64,
+    #[serde(rename = "createTime")]
+    pub create_time: i64,
+    pub buys: Vec<PriceLevel>,
+    pub sells: Vec<PriceLevel>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PriceLevel {
+    pub price: f64,
+    pub quantity: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ExecutionsTopicWrapper {
+    #[serde(rename = "orderState")]
+    pub order_state: Option<OrderState>,
+    pub execution: Option<Execution>
 }
 
 #[derive(Debug, Deserialize, Serialize)]

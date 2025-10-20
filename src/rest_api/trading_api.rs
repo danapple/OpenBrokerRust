@@ -9,7 +9,8 @@ use log::{error, info};
 use crate::constants::APPLICATION_JSON;
 use uuid::Uuid;
 
-use crate::entities;
+use crate::{entities, exchange_interface};
+use crate::exchange_interface::exchange_client;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
@@ -94,7 +95,7 @@ pub async fn preview_order(dao: ThinData<Dao>,
         return HttpResponse::Forbidden().finish();
     }
 
-    let vetting_result = match vetter.vet_order(rest_api_order.clone()).await {
+    let vetting_result = match vetter.vet_order(&rest_api_order).await {
         Ok(x) => x,
         Err(_) => todo!(),
     };
@@ -118,7 +119,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         return HttpResponse::Forbidden().finish();
     }
 
-    let vetting_result = match vetter.vet_order(rest_api_order.clone()).await {
+    let vetting_result = match vetter.vet_order(&rest_api_order).await {
         Ok(x) => x,
         Err(_) => todo!(),
     };
@@ -133,7 +134,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let ext_order_id = rest_api_order.ext_order_id.clone().unwrap_or_else(|| Uuid::new_v4().simple().to_string());
     let exchange_order = rest_api_order.to_exchange_order(instrument_manager);
 
-    rest_api_order.account_key = Some(account_key.clone());
+    rest_api_order.account_key = Some(account_key);
     rest_api_order.ext_order_id = Some(ext_order_id);
 
     let entities_order = rest_api_order.to_entities_order(exchange_order.client_order_id.clone());
@@ -156,20 +157,24 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let response = instrument.exchange_client.submit_order(exchange_order).await;
 
-    order_state.order_status = order_status_to_rest_api_order_status(response.order_status);
-    order_state.update_time = current_time_millis();
+    // We'll get async notifications for all status updates other than Rejected
+    if response.order_status == exchange_interface::trading::OrderStatus::Rejected {
+        order_state.order_status = OrderStatus::Rejected;
+        order_state.update_time = current_time_millis();
 
-    let txn = dao.begin(&mut db_connection).await;
-    // TODO ignore optimistic locking exceptions, as the exchange may have
-    // sent an async update (eg complete fill) before we can update here.
-    match txn.update_order(&mut order_state).await {
-        Ok(x) => x,
-        Err(y) => {error!("update error {}", y.to_string()); todo!()},
-    };
-    match txn.commit().await {
-        Ok(x) => x,
-        Err(_) => todo!(),
-    };
+        let txn = dao.begin(&mut db_connection).await;
+        match txn.update_order(&mut order_state).await {
+            Ok(x) => x,
+            Err(y) => {
+                error!("update error {}", y.to_string());
+                todo!()
+            },
+        };
+        match txn.commit().await {
+            Ok(x) => x,
+            Err(_) => todo!(),
+        };
+    }
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
