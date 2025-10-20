@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate actix_web;
 
-use crate::trade_handling::trade_handling::{handle_depth, handle_execution, handle_order_state, handle_last_trade};
+use crate::trade_handling::trade_handling::{handle_execution, handle_order_state};
 use std::error::Error;
 use actix_web::{
     dev::ServiceResponse,
@@ -33,9 +33,9 @@ use instrument_manager::InstrumentManager;
 use crate::access_control::AccessControl;
 use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, OrderState};
 use crate::exchange_interface::websocket_client::ExchangeWebsocketClient;
+use crate::market_data::receiver::{handle_depth, handle_last_trade};
 use crate::persistence::dao;
 use crate::vetting::all_pass_vetter::{AllPassVetter};
-use crate::websockets::client::StompMessage;
 use crate::websockets::listener::{start_websocket_listener};
 
 mod entities;
@@ -47,6 +47,7 @@ mod access_control;
 mod vetting;
 mod websockets;
 mod trade_handling;
+mod market_data;
 
 fn add_error_header<B>(mut res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
 
@@ -74,7 +75,7 @@ async fn main() -> io::Result<()> {
 
     let exchange_websocket_client = ExchangeWebsocketClient::new(config.clone(),
                                                                  handle_execution, handle_order_state,
-                                                                 handle_depth,handle_last_trade);
+                                                                 handle_depth, handle_last_trade);
 
     match start_websocket_listener(&config).await {
         Ok(_) => {},
