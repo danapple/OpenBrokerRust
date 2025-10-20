@@ -120,7 +120,7 @@ impl<'b> DaoTransaction<'b> {
     pub async fn get_order(&self, account_key: &String, ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
-        query_string.push_str(" AND base.extOrderId = $2");
+        query_string.push_str("WHERE base.accountKey = $1 AND base.extOrderId = $2");
        let res = match self.transaction.query(&query_string,
            &[&account_key,
                     &ext_order_id]).await {
@@ -136,7 +136,24 @@ impl<'b> DaoTransaction<'b> {
     }
 
     pub(crate) async fn get_order_by_client_order_id(&self, client_order_id: &String) -> Result<Option<OrderState>, DaoError> {
-        todo!()
+        let mut query_string: String = "".to_owned();
+        query_string.push_str(ORDER_QUERY);
+        query_string.push_str(" WHERE base.clientOrderId = $1");
+        let res = match self.transaction.query(&query_string,
+                                               &[&client_order_id]).await {
+            Ok(x) => x,
+            Err(y) => { error!("get_order_by_client_order_id {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
+        };
+        let order_state_map = convert_rows_to_order_states(res);
+        if order_state_map.len() != 1 {
+            todo!()
+        }
+        let order_state = order_state_map.values().next();
+        let order_state = match order_state {
+            None => {None}
+            Some(x) => {Some(x.clone())}
+        };
+        Ok(order_state)
     }
 }
 
@@ -185,5 +202,4 @@ state.orderStatus, state.updateTime, state.versionNumber, \
 leg.orderLegId, leg.instrumentId, leg.ratio \
 FROM order_base AS base \
 JOIN order_state AS state ON state.orderId = base.orderId \
-JOIN order_leg AS leg ON leg.orderId = base.orderId \
-WHERE base.accountKey = $1";
+JOIN order_leg AS leg ON leg.orderId = base.orderId ";
