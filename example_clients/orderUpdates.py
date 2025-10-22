@@ -33,7 +33,7 @@ def main(argv):
 
     websocket.enableTrace(True)
 
-    ws_app = websocket.WebSocketApp("ws://localhost:8080/ws", cookie = 'customerKey=' + customerKey, on_open=on_open, on_message=on_message)
+    ws_app = websocket.WebSocketApp("ws://192.168.111.107:8080/ws", cookie = 'customerKey=' + customerKey, on_open=on_open, on_message=on_message)
 
     ws_app.run_forever(reconnect=1)
 

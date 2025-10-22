@@ -5,7 +5,6 @@ use actix_files as fs;
 use crate::config::BrokerConfig;
 use crate::trade_handling::trade_handling::{handle_execution, handle_order_state};
 use actix_web::{dev::ServiceResponse, http::header, middleware, middleware::{ErrorHandlerResponse, ErrorHandlers}, web, web::ThinData, App, HttpServer, Result};
-use std::error::Error;
 use std::io;
 use std::sync::Arc;
 

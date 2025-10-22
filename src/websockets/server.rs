@@ -1,5 +1,4 @@
 use crate::access_control::{AccessControl, Privilege};
-use crate::constants::ORDER_UPDATE_QUEUE_NAME;
 use crate::websockets::client::StompMessage;
 use crate::websockets::stomp;
 use crate::websockets::stomp::parse_message;
@@ -9,10 +8,8 @@ use actix_ws::AggregatedMessage;
 use futures_util::StreamExt;
 use log::{debug, error, info, warn};
 use serde;
-use serde::de::Unexpected::Float;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::fs::write;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use strfmt::strfmt;
@@ -72,14 +69,11 @@ impl WebSocketServer {
                                 },
                             };
                         }
-                        if dropped_conns.len() > 0 {
-                            dropped_conns.reverse();
-                            for pos in dropped_conns {
-                                conns_list.remove(pos);
-                            }
+                        dropped_conns.reverse();
+                        for pos in dropped_conns {
+                            conns_list.remove(pos);
                         }
                     }
-
                 }
             },
             Err(_) => todo!(),
@@ -94,9 +88,13 @@ pub async fn ws_setup(
     access_control: ThinData<AccessControl>,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
+
     let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
 
-    let customer_key = req.cookie("customerKey").unwrap().value().to_string();
+    let customer_key = match req.cookie("customerKey") {
+        Some(x) => x,
+        None => todo!("No customer key available"),
+    }.value().to_string();
     if customer_key.is_empty() {
         return Err(error::ErrorBadRequest("customerKey is empty"));
     }
@@ -185,6 +183,7 @@ async fn ws_handler(
                             },
                             StompMessage::Connect(ct) => {
                                 info!("Received expected Connect message on server: {}", ct.accept_version);
+                                session.text(stomp::connected_message().to_string()).await.unwrap();
                             }
                         };
     // }
@@ -202,7 +201,7 @@ async fn ws_handler(
                 let subscription_id = subscriptions.get(&queue_item.destination);
                 match subscription_id {
                     Some(id) => {
-                        let data_message = stomp::data_message(queue_item.destination, *id, &queue_item.body);
+                        let data_message = stomp::data_message(queue_item.destination, id.clone(), &queue_item.body);
                         let data_message_string = data_message.to_string();
                         info!("Sending {}", data_message_string);
                         session.text(data_message_string).await.unwrap();

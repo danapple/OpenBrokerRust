@@ -9,11 +9,15 @@ pub fn connect_message() -> Message {
     Message::Text("CONNECT\naccept-version:1.2,2.0\n\n\x00".to_string())
 }
 
+pub fn connected_message() -> Message {
+    Message::Text("CONNECTED\naccept-version:1.2,2.0\n\n\x00".to_string())
+}
+
 pub fn subscribe_message(subscription_id: u32, destination: &str) -> Message {
     Message::Text(format!("SUBSCRIBE\nid:{}\ndestination:{}\nack:auto\n\n\x00", subscription_id, destination))
 }
 
-pub fn data_message(destination: String, subscription: u16, thing: &impl Serialize) -> Message{
+pub fn data_message(destination: String, subscription: String, thing: &impl Serialize) -> Message{
     let string = match serde_json::to_string(thing) {
         Ok(x) => x,
         Err(_) => todo!(),
@@ -23,14 +27,14 @@ pub fn data_message(destination: String, subscription: u16, thing: &impl Seriali
                  Uuid::new_v4().simple().to_string(),
                  string)
 }
-fn text_message(destination: String, subscription: u16, message_id: String, body: String) -> Message {
+fn text_message(destination: String, subscription: String, message_id: String, body: String) -> Message {
     Message::Text(format!("\
     MESSAGE\n\
     destination:{}\n\
     content_type:{}\n\
     subscription:{}\n\
     message_id:{}\n\
-    content_length:{}\n\
+    content_length:{}\n\n\
     body:{}\n\
     \n\x00",
     destination,
@@ -68,7 +72,7 @@ pub struct ConnectContent {
 }
 
 pub struct SubscribeContent {
-    pub id: u16,
+    pub id: String,
     pub destination: String,
     pub ack: String,
 }
@@ -140,9 +144,12 @@ pub fn parse_message(message: &String) -> StompMessage {
         },
         "SUBSCRIBE" => {
             StompMessage::Subscribe(SubscribeContent {
-                id: vals[ID].parse::<u16>().unwrap(),
+                id: vals[ID].to_string(),
                 destination: vals[DESTINATION].to_string(),
-                ack: vals[ACK].to_string(),
+                ack: match vals.get(ACK) {
+                    Some(x) => x,
+                    None => "auto",
+                }.to_string(),
             })
 
         }
