@@ -1,16 +1,18 @@
-use std::sync::{Arc};
-use tokio::sync::Mutex;
-use log::{info};
+use crate::constants::ORDER_UPDATE_QUEUE_NAME;
 use crate::exchange_interface::trading::{Execution, OrderState, OrderStatus};
 use crate::persistence::dao::Dao;
 use crate::rest_api::converters::order_status_to_rest_api_order_status;
+use crate::websockets::server::WebSocketServer;
+use log::info;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, order_state: OrderState) {
+pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, order_state: OrderState) {
     info!("Order state: {:?}", order_state);
-    tokio::spawn(update_order_state(mutex.clone(), dao.clone(), order_state));
+    tokio::spawn(update_order_state(mutex.clone(), web_socket_server.clone(), dao.clone(), order_state));
 }
 
-async fn update_order_state(mutex: Arc<Mutex<()>>, dao: Dao, order_state: OrderState) {
+async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, order_state: OrderState) {
     let _lock = mutex.lock().await;
     let mut db_connection = dao.get_connection().await;
     let txn = dao.begin(&mut db_connection).await;
@@ -25,19 +27,20 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, dao: Dao, order_state: OrderS
                         Ok(x) => x,
                         Err(_) => todo!(),
                     };
+                    match txn.commit().await {
+                        Ok(x) => x,
+                        Err(_) => todo!(),
+                    };
+                    web_socket_server.send_account_message( db_order_state_option.order.account_key.clone(), ORDER_UPDATE_QUEUE_NAME, &db_order_state_option.to_rest_api_order_state());
                 },
                 _ => {}
             }
         },
         Err(_) => todo!(),
     };
-    match txn.commit().await {
-        Ok(x) => x,
-        Err(_) => todo!(),
-    };
 }
 
-pub fn handle_execution(dao: &Dao, execution: Execution) {
+pub fn handle_execution(dao: &Dao, web_socket_server: &WebSocketServer, execution: Execution) {
     info!("Execution: {:?}", execution);
     //
     // let mut db_connection = dao.get_connection().await;

@@ -14,7 +14,6 @@ impl AccessControl {
         AccessControl {}
     }
     pub fn is_allowed(& self , account_key: &String, customer_key: &String, privilege: Privilege) -> bool {
-        // TODO call another service
-         return true;
+         account_key.eq("myaccount") && customer_key.eq("customer_key")
     }
 }

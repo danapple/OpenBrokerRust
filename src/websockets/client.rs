@@ -1,23 +1,23 @@
+use anyhow::Error;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use anyhow::Error;
 
 use crate::config::BrokerConfig;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use crate::websockets::stomp;
+pub(crate) use crate::websockets::stomp::StompMessage;
+use crate::websockets::stomp::{parse_message, MessageContent};
 use anyhow::Result;
 use futures_util::SinkExt;
 use log::{debug, error, info};
 use tokio_stream::StreamExt;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
-use crate::websockets::stomp;
-use crate::websockets::stomp::parse_message;
-pub(crate) use crate::websockets::stomp::StompMessage;
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 pub struct WebsocketClient {
     websocket_address: String,
     broker_key: String,
-    handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&StompMessage) + Send + Sync + 'static>>>>,
+    handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync + 'static>>>>,
 }
 
 impl WebsocketClient {
@@ -29,7 +29,7 @@ impl WebsocketClient {
         }
     }
 
-    pub fn subscribe(&mut self, destination: &str, func: Arc<dyn Fn(&StompMessage) + Send + Sync + 'static>){
+    pub fn subscribe(&mut self, destination: &str, func: Arc<dyn Fn(&MessageContent) + Send + Sync + 'static>){
         self.handlers.write().unwrap().insert(destination.to_string(), func);
     }
 
@@ -39,7 +39,7 @@ impl WebsocketClient {
     }
 }
 
-async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&StompMessage) + Send + Sync + 'static>>>>) -> Result<()> {
+async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync + 'static>>>>) -> Result<()> {
     let mut unboxed_handlers = HashMap::new();
     for (key, value) in handlers.read().unwrap().iter() {
         unboxed_handlers.insert(key.clone(), value.to_owned());
@@ -57,27 +57,40 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
 
     let (mut ws_stream, _) = connect_async(request).await.expect("Failed to connect");
     println!("WebSocket client connected");
-    ws_stream.send(stomp::connect()).await?;
+    ws_stream.send(stomp::connect_message()).await?;
 
     let mut subscription_id = 0;
     while let Some(msg) = ws_stream.next().await {
         match msg? {
             Message::Text(text) => {
-                debug!("Received message: {}", text);
-                if text.starts_with("MESSAGE") {
-                    let message = parse_message(&text);
-                    match unboxed_handlers.get(message.destination.as_str()) {
-                        Some(func) => func(&message),
-                        _ => {}
+                debug!("Received message: {} on client", text);
+                match parse_message(&text) {
+                    StompMessage::Message(msg) => {
+                        debug!("Handling StompMessage:Message");
+                        match unboxed_handlers.get(msg.destination.as_str()) {
+                            Some(func) => func(&msg),
+                            _ => {}
+                        }
                     }
-                } else if text.starts_with("CONNECTED") {
-                    for (destination, func) in unboxed_handlers.iter() {
-                        ws_stream.send(stomp::subscribe_message(subscription_id, destination)).await?;
-                        subscription_id += 1
+                    StompMessage::Connected(ct) => {
+                        debug!("Received expected Connected message on client");
+                        for (destination, func) in unboxed_handlers.iter() {
+                            debug!("Subscribing to {}", destination);
+                            ws_stream.send(stomp::subscribe_message(subscription_id, destination)).await?;
+                            subscription_id += 1
+                        }
                     }
-                }
+                    StompMessage::Subscribe(sub) => {
+                        error!("Received unexpected subscribe message on client: {}", sub.destination);
+                    },
+                    StompMessage::Connect(ct) => {
+                        error!("Received unexpected Connect message on client: {}", ct.accept_version);
+                    },
+                };
             }
-            _ => {}
+            y => {
+                info!("Received unexpected non-text message on client: {:?}", y);
+            }
         }
     }
     Ok(())

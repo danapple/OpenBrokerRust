@@ -1,15 +1,14 @@
+use crate::access_control::{AccessControl, Privilege};
 use std::collections::HashMap;
 use std::error::Error;
 use std::string::ToString;
-use crate::access_control::{AccessControl, Privilege};
 
-use actix_web::{web, HttpResponse};
+use crate::constants::{APPLICATION_JSON, ORDER_UPDATE_QUEUE_NAME};
 use actix_web::web::{Json, Path, ThinData};
+use actix_web::{web, HttpResponse};
 use log::{error, info};
-use crate::constants::APPLICATION_JSON;
 use uuid::Uuid;
 
-use crate::{entities, exchange_interface};
 use crate::exchange_interface::exchange_client;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
@@ -18,6 +17,9 @@ use crate::rest_api::converters::order_status_to_rest_api_order_status;
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::time::current_time_millis;
 use crate::vetting::all_pass_vetter::AllPassVetter;
+use crate::websockets::server;
+use crate::websockets::server::WebSocketServer;
+use crate::{entities, exchange_interface};
 
 #[get("/accounts/{account_key}/orders")]
 pub async fn get_orders(dao: ThinData<Dao>,
@@ -110,6 +112,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
                           access_control: ThinData<AccessControl>,
                           instrument_manager: ThinData<InstrumentManager>,
                           vetter: ThinData<AllPassVetter>,
+                          mut web_socket_server: ThinData<WebSocketServer>,
                           path: Path<(String)>,
                           mut rest_api_order: Json<Order>) -> HttpResponse {
     info!("submit_order called");
@@ -134,7 +137,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let ext_order_id = rest_api_order.ext_order_id.clone().unwrap_or_else(|| Uuid::new_v4().simple().to_string());
     let exchange_order = rest_api_order.to_exchange_order(instrument_manager);
 
-    rest_api_order.account_key = Some(account_key);
+    rest_api_order.account_key = Some(account_key.clone());
     rest_api_order.ext_order_id = Some(ext_order_id);
 
     let entities_order = rest_api_order.to_entities_order(exchange_order.client_order_id.clone());
@@ -154,6 +157,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
+    web_socket_server.send_account_message(account_key.clone(), ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state());
 
     let response = instrument.exchange_client.submit_order(exchange_order).await;
 
@@ -174,6 +178,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
             Ok(x) => x,
             Err(_) => todo!(),
         };
+        web_socket_server.send_account_message(account_key, ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state());
     }
 
     HttpResponse::Ok()
@@ -183,6 +188,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
 #[delete("/accounts/{account_key}/orders/{ext_order_id}")]
 pub async fn cancel_order(dao: ThinData<Dao>,
+                          mut web_socket_server: ThinData<WebSocketServer>,
                           access_control: ThinData<AccessControl>,
                           instrument_manager: ThinData<InstrumentManager>,
                           path: Path<(String, String)>) -> HttpResponse {
@@ -219,6 +225,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
+    web_socket_server.send_account_message(account_key.clone(), ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state());
 
     let instrument = instrument_manager.get_instrument(match order_state.order.legs.first() {
         Some(x) => x,
@@ -238,6 +245,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
+    web_socket_server.send_account_message(account_key, ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state());
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)

@@ -1,42 +1,37 @@
 #[macro_use]
 extern crate actix_web;
+use actix_files as fs;
 
+use crate::config::BrokerConfig;
 use crate::trade_handling::trade_handling::{handle_execution, handle_order_state};
+use actix_web::{dev::ServiceResponse, http::header, middleware, middleware::{ErrorHandlerResponse, ErrorHandlers}, web, web::ThinData, App, HttpServer, Result};
 use std::error::Error;
-use actix_web::{
-    dev::ServiceResponse,
-    http::header,
-    middleware,
-    middleware::{ErrorHandlerResponse, ErrorHandlers}, web::ThinData, App, HttpServer,
-    Result,
-};
 use std::io;
 use std::sync::Arc;
-use crate::config::BrokerConfig;
 
 use confik::{Configuration as _, EnvSource};
 use tokio_postgres::NoTls;
 
+use dotenv::dotenv;
 use env_logger::Env;
 use log::{error, info};
-use dotenv::dotenv;
 
 mod constants;
 
 mod rest_api;
 mod exchange_interface;
 
-use rest_api::account_api;
-use rest_api::trading_api;
-use crate::exchange_interface::exchange_client::ExchangeClient;
-use instrument_manager::InstrumentManager;
 use crate::access_control::AccessControl;
+use crate::exchange_interface::exchange_client::ExchangeClient;
 use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, OrderState};
 use crate::exchange_interface::websocket_client::ExchangeWebsocketClient;
 use crate::market_data::receiver::{handle_depth, handle_last_trade};
 use crate::persistence::dao;
-use crate::vetting::all_pass_vetter::{AllPassVetter};
-use crate::websockets::listener::{start_websocket_listener};
+use crate::vetting::all_pass_vetter::AllPassVetter;
+use crate::websockets::server;
+use instrument_manager::InstrumentManager;
+use rest_api::account_api;
+use rest_api::trading_api;
 
 mod entities;
 mod config;
@@ -78,21 +73,17 @@ async fn main() -> io::Result<()> {
         Err(_) => todo!(),
     };
     let dao = dao::Dao::new(pool);
+
+    let web_socket_server = server::WebSocketServer::new();
     
     let exchange_websocket_client = ExchangeWebsocketClient::new(config.clone(),
                                                                  dao.clone(),
+                                                                 web_socket_server.clone(),
                                                                  handle_execution, handle_order_state,
                                                                  handle_depth, handle_last_trade);
-
-    match start_websocket_listener(&config).await {
-        Ok(_) => {},
-        Err(_) => todo!(),
-    };
-
     exchange_websocket_client.start_exchange_websockets().await;
 
     info!("About to add instruments");
-
     // TODO loop in another thread until instruments are retrieved
     let base_exchange_client = Arc::new(ExchangeClient::new(&config));
     let base_instruments = base_exchange_client.clone().get_instruments().await;
@@ -103,7 +94,6 @@ async fn main() -> io::Result<()> {
         instrument_manager.add_instrument(instrument.instrument_id, base_exchange_client.clone());
     }
     info!("Done adding instruments");
-
     
     let access_control = AccessControl::new();
 
@@ -115,6 +105,7 @@ async fn main() -> io::Result<()> {
             .app_data(ThinData(dao.clone()))
             .app_data(ThinData(access_control.clone()))
             .app_data(ThinData(vetter.clone()))
+            .app_data(ThinData(web_socket_server.clone()))
             .wrap(middleware::Logger::default())
             .wrap(ErrorHandlers::new().default_handler(add_error_header))
             .service(trading_api::get_order)
@@ -124,6 +115,11 @@ async fn main() -> io::Result<()> {
             .service(trading_api::cancel_order)
             .service(account_api::get_positions)
             .service(account_api::get_balance)
+            .service(web::resource("/ws").route(web::get().to(server::ws_setup)))
+            .service(fs::Files::new("/", "./resources/static")
+                         .show_files_listing()
+                         .index_file("index.html")
+                         .use_last_modified(true),)
     })
         .bind(config.server_addr)?
         .run()
