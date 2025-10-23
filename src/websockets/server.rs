@@ -8,6 +8,7 @@ use actix_web::{error, web, Error, HttpRequest, HttpResponse};
 use actix_ws::AggregatedMessage;
 use bimap::{BiHashMap, BiMap};
 use futures_util::StreamExt;
+use log::trace;
 use log::{debug, error, info, warn};
 use serde;
 use serde::Serialize;
@@ -139,17 +140,17 @@ async fn ws_handler(
     let close_reason = loop {
         tokio::select! {
             Some(Ok(msg)) = msg_stream.next() => {
-                info!("msg: {msg:?}");
+                trace!("Received: {msg:?}");
 
                 match msg {
                     AggregatedMessage::Ping(bytes) => {
-                        info!("Websocket Ping");
+                        trace!("Websocket Ping");
                         last_heartbeat = Instant::now();
                         session.pong(&bytes).await.unwrap();
                     }
 
                     AggregatedMessage::Pong(_) => {
-                        info!("Websocket Pong");
+                        trace!("Websocket Pong");
                         last_heartbeat = Instant::now();
                     }
 

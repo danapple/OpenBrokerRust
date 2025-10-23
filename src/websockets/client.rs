@@ -1,4 +1,5 @@
 use anyhow::Error;
+use log::trace;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -63,7 +64,7 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
     while let Some(msg) = ws_stream.next().await {
         match msg? {
             Message::Text(text) => {
-                debug!("Received message: {} on client", text);
+                trace!("Received message: {} on client", text);
                 match parse_message(&text) {
                     StompMessage::Message(msg) => {
                         debug!("Handling StompMessage:Message");

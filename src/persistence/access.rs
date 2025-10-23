@@ -1,5 +1,6 @@
 use crate::access_control::Privilege;
 use crate::persistence::dao::{DaoError, DaoTransaction};
+use log::trace;
 use log::{error, info};
 
 impl<'b> DaoTransaction<'b> {
@@ -15,7 +16,7 @@ impl<'b> DaoTransaction<'b> {
             Err(y) => { error!("is_allowed {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
 
         };
-        info!("res.is_empty() = {}", res.is_empty());
+        trace!("res.is_empty() = {}", res.is_empty());
         Ok(!res.is_empty())
     }
 }
