@@ -1,8 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
-use tokio_postgres::types::{ToSql,FromSql};
+use tokio_postgres::types::{FromSql, ToSql};
 
 #[derive(Debug, Deserialize, Serialize, Clone, ToSql, FromSql, PartialEq)]
 pub enum OrderStatus {
@@ -52,9 +52,9 @@ pub fn is_order_status_open(order_status: &OrderStatus) -> bool {
 #[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
 pub struct Instrument {
-    pub instrument_id: u64,
+    pub instrument_id: i64,
     pub value_factor: f64,
-    pub underlying_instrument_id: u64,
+    pub underlying_instrument_id: i64,
     pub underlying_quantity: f64,
 }
 

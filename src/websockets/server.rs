@@ -1,15 +1,19 @@
 use crate::access_control::{AccessControl, Privilege};
+use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
 use crate::websockets::stomp;
 use crate::websockets::stomp::parse_message;
 use actix_web::web::ThinData;
 use actix_web::{error, web, Error, HttpRequest, HttpResponse};
 use actix_ws::AggregatedMessage;
+use bimap::{BiHashMap, BiMap};
 use futures_util::StreamExt;
 use log::{debug, error, info, warn};
 use serde;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::ops::Index;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use strfmt::strfmt;
@@ -38,7 +42,7 @@ impl WebSocketServer {
         }
     }
 
-    pub fn send_account_message(&mut self, account_key: String, destination: &str, body: &impl Serialize) {
+    pub fn send_account_message(&mut self, account_key: &str, destination: &str, body: &impl Serialize) {
         let mut vars = HashMap::new();
         vars.insert("account_key".to_string(), account_key);
         let new_destination = strfmt(destination, &vars).unwrap();
@@ -91,10 +95,11 @@ pub async fn ws_setup(
 
     let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
 
-    let customer_key = match req.cookie("customerKey") {
+    let customer_key = base_api::get_customer_key(req);
+    let customer_key = match customer_key {
         Some(x) => x,
         None => todo!("No customer key available"),
-    }.value().to_string();
+    }.to_string();
     if customer_key.is_empty() {
         return Err(error::ErrorBadRequest("customerKey is empty"));
     }
@@ -127,7 +132,7 @@ async fn ws_handler(
         .aggregate_continuations()
         .max_continuation_size(2 * 1024 * 1024);
 
-    let mut subscriptions = HashMap::new();
+    let mut subscriptions = BiMap::new();
 
     let (conn_tx, mut conn_rx) = mpsc::unbounded_channel::<QueueItem>();
 
@@ -160,8 +165,10 @@ async fn ws_handler(
                             StompMessage::Subscribe(sub) => {
                                 info!("Received expected Subscribe message on server: {} as {}", sub.destination, sub.id);
 
-                                if sub.destination.starts_with("/account/") {
-                                    validate_subscription(&access_control, &sub.destination, &customer_key)
+                                if sub.destination.starts_with("/accounts/") {
+                                    if !validate_subscription(&access_control, &sub.destination, &customer_key).await {
+                                        session.clone().close(None).await.unwrap();
+                                    }
                                 }
                                 match web_socket_server.connections.write() {
                                     Ok(mut writable_conns) => {
@@ -177,28 +184,34 @@ async fn ws_handler(
                                     },
                                     Err(_) => todo!(),
                                 };
-
                                 subscriptions.insert(sub.destination.clone(), sub.id);
-
                             },
                             StompMessage::Connect(ct) => {
                                 info!("Received expected Connect message on server: {}", ct.accept_version);
                                 session.text(stomp::connected_message().to_string()).await.unwrap();
+                            },
+                            StompMessage::Unsubscribe(us) => {
+                                info!("Received expected Unsubscribe message on server: {}", us.id);
+                                unsubscribe(&web_socket_server, &mut subscriptions, &conn_tx, us.id);
+                            },
+                            StompMessage::Disconnect(_) => {
+                                info!("Received expected Disconnect message on server");
+                                unsubscribe_all(&web_socket_server, &mut subscriptions, &conn_tx);
                             }
                         };
-    // }
                     }
                     AggregatedMessage::Binary(_bin) => {
                         warn!("Unexpected binary message");
                     }
                     AggregatedMessage::Close(reason) => {
                         info!("Close message: {:?}", reason);
+                        unsubscribe_all(&web_socket_server, &mut subscriptions, &conn_tx);
                         break reason
                     },
                 }
             }
             Some(queue_item) = conn_rx.recv() => {
-                let subscription_id = subscriptions.get(&queue_item.destination);
+                let subscription_id = subscriptions.get_by_left(&queue_item.destination);
                 match subscription_id {
                     Some(id) => {
                         let data_message = stomp::data_message(queue_item.destination, id.clone(), &queue_item.body);
@@ -229,14 +242,56 @@ async fn ws_handler(
     let _ = session.close(close_reason).await;
 }
 
-fn validate_subscription(access_control: &AccessControl, destination: &String, customer_key: &String) {
+async fn validate_subscription(access_control: &AccessControl, destination: &String, customer_key: &String) -> bool {
     let path_elements = destination.split("/").collect::<Vec<&str>>();
     let path_length = path_elements.len();
     if path_length != 4 {
         todo!("/account path {} has {} elements, not expected 4", destination, path_length);
     }
     let account_key = path_elements[2].to_string();
-    if !access_control.is_allowed(&account_key, &customer_key, Privilege::Read) {
-        todo!("Customer not allowed");
+    access_control.is_allowed(&account_key, Some(customer_key.to_string()), Privilege::Read).await
+}
+
+fn unsubscribe_all(web_socket_server: &ThinData<WebSocketServer>, subscriptions: &mut BiHashMap<String, String>, conn_tx: &UnboundedSender<QueueItem>) {
+    let mut ids_to_remove = Vec::new();
+    let immutable_subscriptions = subscriptions.clone();
+    {
+        for right_val in immutable_subscriptions.right_values() {
+            ids_to_remove.push(right_val);
+        }
     }
+    for id_to_remove in ids_to_remove {
+        unsubscribe(&web_socket_server, subscriptions, &conn_tx, id_to_remove.clone());
+    }}
+fn unsubscribe(web_socket_server: &ThinData<WebSocketServer>, subscriptions: &mut BiHashMap<String, String>, conn_tx: &UnboundedSender<QueueItem>, id: String) {
+    match subscriptions.remove_by_right(&id) {
+        Some(destination) => {
+            match web_socket_server.connections.write() {
+                Ok(mut writable_conns) => {
+                    match writable_conns.get_mut(destination.0.as_str()) {
+                        Some(per_destination_conns) => {
+                            let index = per_destination_conns.iter().position(|this_conn| conn_tx.same_channel(this_conn));
+                            match index {
+                                Some(ind) => {
+                                    per_destination_conns.remove(ind);
+                                    info!("Unsubscribed here {}", ind);
+                                },
+                                None => {
+                                    warn!("Cannot find connection to remove for unsubscribe: {}:{}", destination.0, destination.1);
+                                }
+                            };
+
+                        },
+                        None => {
+                            warn!("Cannot find connections for unsubscribe: {}:{}", destination.0, destination.1);
+                        },
+                    };
+                },
+                Err(_) => todo!(),
+            };
+        },
+        None => {
+            warn!("Received Unsubscribe message on server for unknown subscription: {}", id);
+        },
+    };
 }

@@ -2,11 +2,9 @@ use crate::config::BrokerConfig;
 use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, LastTrade, MarketDepth, OrderState};
 use crate::persistence::dao::Dao;
 use crate::websockets;
-use crate::websockets::client::WebsocketClient;
 use crate::websockets::server::WebSocketServer;
 use crate::websockets::stomp::MessageContent;
 use log::{debug, error, info};
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -72,7 +70,7 @@ fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &Web
 
     let wrapper: ExecutionsTopicWrapper = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
-        Err(y) => panic!("{}", y),
+        Err(y) => todo!("{}", y),
     };
     match wrapper.order_state {
         None => {}
@@ -93,7 +91,7 @@ fn depth_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocke
     debug!("depth_receiver {} : {}", stomp_message.destination, stomp_message.body);
     let depth: MarketDepth = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
-        Err(y) => panic!("{}", y),
+        Err(y) => todo!("{}", y),
     };
     (depth_handler)(dao, web_socket_server, depth);
 }
@@ -102,7 +100,7 @@ fn last_trade_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &Web
     debug!("trades_receiver {} : {}", stomp_message.destination, stomp_message.body);
     let last_trade: LastTrade = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
-        Err(y) => panic!("{}", y),
+        Err(y) => todo!("{}", y),
     };
     (last_trade_handler)(dao, web_socket_server, last_trade);
 }

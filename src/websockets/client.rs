@@ -83,8 +83,14 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
                     StompMessage::Subscribe(sub) => {
                         error!("Received unexpected subscribe message on client: {}", sub.destination);
                     },
+                    StompMessage::Unsubscribe(us) => {
+                        error!("Received unexpected unsubscribe message on client: {}", us.id);
+                    },
                     StompMessage::Connect(ct) => {
                         error!("Received unexpected Connect message on client: {}", ct.accept_version);
+                    },
+                    StompMessage::Disconnect(_) => {
+                        todo!()
                     },
                 };
             }

@@ -1,23 +1,21 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::ops::Index;
-use std::str::FromStr;
 use crate::entities::trading::{Order, OrderLeg, OrderState};
+use crate::persistence::dao::{DaoError, DaoTransaction};
+use crate::rest_api::trading::OrderStatus;
 use deadpool_postgres::{Pool, Transaction};
 use log::error;
-use tokio_postgres::{Row};
-use crate::rest_api::trading::OrderStatus;
-use crate::persistence::dao::{DaoError, DaoTransaction};
+use std::collections::HashMap;
+use std::str::FromStr;
+use tokio_postgres::Row;
 
 
 impl<'b> DaoTransaction<'b> {
     pub async fn save_order(&self, mut order_state: OrderState) -> Result<OrderState, DaoError> {
         let row = match self.transaction.query_one(
             "INSERT INTO order_base \
-            (accountKey, extOrderId, clientOrderId, createTime, price, quantity) \
+            (accountId, extOrderId, clientOrderId, createTime, price, quantity) \
             VALUES ($1, $2, $3, $4, $5, $6) \
             RETURNING orderId",
-            &[&order_state.order.account_key,
+            &[&order_state.order.account_id,
                      &order_state.order.ext_order_id,
                      &order_state.order.client_order_id,
                      &order_state.order.create_time,
@@ -26,7 +24,7 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(x) => x,
-            Err(y) => { error!("save_order {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
+            Err(y) => { error!("save_order {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
         };
         let order_id =  row.get("orderId");
         order_state.order.order_id = order_id;
@@ -42,7 +40,7 @@ impl<'b> DaoTransaction<'b> {
                 ]
             ).await {
                 Ok(x) => x,
-                Err(y) => { error!("save_order leg {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
+                Err(y) => { error!("save_order leg {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
             };
         }
 
@@ -57,7 +55,7 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(_) => 0,
-            Err(y) => { error!("save_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
+            Err(y) => { error!("save_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
         };
 
         match self.insert_order_state_history(&order_state).await {
@@ -81,7 +79,7 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(rows) => rows,
-            Err(y) => { error!("update_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
+            Err(y) => { error!("update_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
         };
         if rows_updated == 0 {
             return Err(DaoError::OptimisticLockingFailed{ description: "update order 0 rows modified".to_string() });
@@ -102,12 +100,15 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(_) => Ok(()),
-            Err(y) => { error!("save_order order_state_history {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecutedFailed{ description: y.to_string() })},
+            Err(y) => { error!("save_order order_state_history {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
         }
     }
 
     pub async fn get_orders(&self, account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
-        let res = match self.transaction.query(ORDER_QUERY,
+        let mut query_string: String = "".to_owned();
+        query_string.push_str(ORDER_QUERY);
+        query_string.push_str("WHERE account.accountKey");
+        let res = match self.transaction.query(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
             Err(y) => { error!("get_order {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
@@ -120,7 +121,7 @@ impl<'b> DaoTransaction<'b> {
     pub async fn get_order(&self, account_key: &String, ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
-        query_string.push_str("WHERE base.accountKey = $1 AND base.extOrderId = $2");
+        query_string.push_str("WHERE account.accountKey = $1 AND base.extOrderId = $2");
        let res = match self.transaction.query(&query_string,
            &[&account_key,
                     &ext_order_id]).await {
@@ -145,7 +146,7 @@ impl<'b> DaoTransaction<'b> {
             Err(y) => { error!("get_order_by_client_order_id {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
         };
         let order_state_map = convert_rows_to_order_states(res);
-        if order_state_map.len() != 1 {
+        if order_state_map.len() > 1 {
             todo!()
         }
         let order_state = order_state_map.values().next();
@@ -183,7 +184,7 @@ fn convert_row_to_order_state(row: &Row) -> OrderState {
     OrderState {
         order: Order {
             order_id: row.get("orderId"),
-            account_key: row.get("accountKey"),
+            account_id: row.get("accountId"),
             ext_order_id: row.get("extOrderId"),
             client_order_id: row.get("clientOrderId"),
             create_time: row.get("createTime"),
@@ -197,9 +198,10 @@ fn convert_row_to_order_state(row: &Row) -> OrderState {
     }
 }
 
-const ORDER_QUERY: &str = "SELECT base.orderId, base.accountKey, base.extOrderId, base.clientOrderId, base.createTime, base.price, base.quantity, \
+const ORDER_QUERY: &str = "SELECT base.orderId, base.accountId, base.extOrderId, base.clientOrderId, base.createTime, base.price, base.quantity, \
 state.orderStatus, state.updateTime, state.versionNumber, \
 leg.orderLegId, leg.instrumentId, leg.ratio \
 FROM order_base AS base \
 JOIN order_state AS state ON state.orderId = base.orderId \
-JOIN order_leg AS leg ON leg.orderId = base.orderId ";
+JOIN order_leg AS leg ON leg.orderId = base.orderId \
+JOIN account ON account.accountId = base.accountId ";

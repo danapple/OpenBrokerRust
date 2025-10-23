@@ -1,5 +1,5 @@
 #[derive(Clone)]
 pub struct Customer {
-        pub customer_id: u64,
+        pub customer_id: i64,
         pub email: String,
     }

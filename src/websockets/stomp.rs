@@ -10,7 +10,7 @@ pub fn connect_message() -> Message {
 }
 
 pub fn connected_message() -> Message {
-    Message::Text("CONNECTED\naccept-version:1.2,2.0\n\n\x00".to_string())
+    Message::Text("CONNECTED\nversion:1.2\n\n\x00".to_string())
 }
 
 pub fn subscribe_message(subscription_id: u32, destination: &str) -> Message {
@@ -49,7 +49,9 @@ pub enum StompMessage {
     Message(MessageContent),
     Connect(ConnectContent),
     Connected(ConnectedContent),
-    Subscribe(SubscribeContent)
+    Subscribe(SubscribeContent),
+    Unsubscribe(UnsubscribeContent),
+    Disconnect(DisconnectContent)
 }
 
 pub struct MessageContent {
@@ -77,9 +79,20 @@ pub struct SubscribeContent {
     pub ack: String,
 }
 
-const MESSAGE_TYPE: &'static str = "message-type";
-const BODY: &'static str = "body";
+pub struct UnsubscribeContent {
+    pub id: String,
+}
+
+pub struct DisconnectContent {
+}
+
 const MESSAGE: &'static str = "MESSAGE";
+const CONNECT: &'static str = "CONNECT";
+const CONNECTED: &'static str = "CONNECTED";
+const SUBSCRIBE: &'static str = "SUBSCRIBE";
+const UNSUBSCRIBE: &'static str = "UNSUBSCRIBE";
+const DISCONNECT: &'static str = "DISCONNECT";
+
 const DESTINATION: &'static str = "destination";
 const CONTENT_TYPE: &'static str = "content-type";
 const CONTENT_LENGTH: &'static str = "content-length";
@@ -91,6 +104,8 @@ const HEART_BEAT: &'static str = "heart-beat";
 const USER_NAME: &'static str = "user-name";
 const ID: &'static str = "id";
 const ACK: &'static str = "ack";
+const MESSAGE_TYPE: &'static str = "message-type";
+const BODY: &'static str = "body";
 
 pub fn parse_message(message: &String) -> StompMessage {
     let mut vals: HashMap<&str, String> = HashMap::new();
@@ -129,12 +144,12 @@ pub fn parse_message(message: &String) -> StompMessage {
                 message_id: vals[MESSAGE_ID].to_string(),
             })
         },
-        "CONNECT" => {
+        CONNECT => {
             StompMessage::Connect(ConnectContent {
                 accept_version: vals[ACCEPT_VERSION].to_string(),
             })
         },
-        "CONNECTED" => {
+        CONNECTED => {
             StompMessage::Connected(ConnectedContent {
                 version: vals[VERSION].to_string(),
                 heart_beat: vals[HEART_BEAT].to_string(),
@@ -142,7 +157,7 @@ pub fn parse_message(message: &String) -> StompMessage {
 
             })
         },
-        "SUBSCRIBE" => {
+        SUBSCRIBE => {
             StompMessage::Subscribe(SubscribeContent {
                 id: vals[ID].to_string(),
                 destination: vals[DESTINATION].to_string(),
@@ -151,7 +166,15 @@ pub fn parse_message(message: &String) -> StompMessage {
                     None => "auto",
                 }.to_string(),
             })
-
+        },
+        UNSUBSCRIBE => {
+            StompMessage::Unsubscribe(UnsubscribeContent {
+                id: vals[ID].to_string()
+            })
+        }
+        DISCONNECT => {
+            StompMessage::Disconnect(DisconnectContent {
+            })
         }
         _ => {
             error!("Unknown message type {}", message_type);

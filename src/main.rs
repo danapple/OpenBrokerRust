@@ -94,7 +94,7 @@ async fn main() -> io::Result<()> {
     }
     info!("Done adding instruments");
     
-    let access_control = AccessControl::new();
+    let access_control = AccessControl::new(dao.clone());
 
     let vetter = AllPassVetter::new();
     
@@ -114,6 +114,7 @@ async fn main() -> io::Result<()> {
             .service(trading_api::cancel_order)
             .service(account_api::get_positions)
             .service(account_api::get_balance)
+            .service(account_api::get_account)
             .service(web::resource("/ws").route(web::get().to(server::ws_setup)))
             .service(fs::Files::new("/", "./resources/static")
                          .show_files_listing()

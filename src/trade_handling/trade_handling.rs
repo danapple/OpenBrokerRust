@@ -1,9 +1,9 @@
 use crate::constants::ORDER_UPDATE_QUEUE_NAME;
 use crate::exchange_interface::trading::{Execution, OrderState, OrderStatus};
 use crate::persistence::dao::Dao;
-use crate::rest_api::converters::order_status_to_rest_api_order_status;
+use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::websockets::server::WebSocketServer;
-use log::info;
+use log::{error, info};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -27,16 +27,24 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSoc
                         Ok(x) => x,
                         Err(_) => todo!(),
                     };
+
+                    let account = match txn.get_account(db_order_state_option.order.account_id).await {
+                        Ok(x) => x,
+                        Err(_) => todo!(),
+                    };
                     match txn.commit().await {
                         Ok(x) => x,
                         Err(_) => todo!(),
                     };
-                    web_socket_server.send_account_message( db_order_state_option.order.account_key.clone(), ORDER_UPDATE_QUEUE_NAME, &db_order_state_option.to_rest_api_order_state());
+                    web_socket_server.send_account_message(account.account_key.as_str(), ORDER_UPDATE_QUEUE_NAME,
+                                                           &db_order_state_option.to_rest_api_order_state(account.account_key.as_str()));
                 },
-                _ => {}
+                _ => {
+                    error!("Trying to update unknown order {}", &order_state.order.client_order_id);
+                }
             }
         },
-        Err(_) => todo!(),
+        Err(_) => { todo!() },
     };
 }
 

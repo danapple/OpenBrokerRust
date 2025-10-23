@@ -1,18 +1,18 @@
+use crate::entities::trading::{Order, OrderState};
+use crate::rest_api::trading::OrderStatus;
+use deadpool_postgres::{Object, Pool, Transaction};
+use log::error;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
-use crate::entities::trading::{Order, OrderState};
-use deadpool_postgres::{Object, Pool, Transaction};
-use log::error;
-use tokio_postgres::{Row};
-use crate::rest_api::trading::OrderStatus;
+use tokio_postgres::Row;
 
 #[derive(Debug)]
 pub enum DaoError {
     CommitFailed { description: String },
     RollbackFailed { description: String } ,
-    ExecutedFailed { description: String },
+    ExecuteFailed { description: String },
     QueryFailed { description: String },
     OptimisticLockingFailed { description: String },
 
@@ -23,7 +23,7 @@ impl fmt::Display for DaoError {
         match *self {
             DaoError::CommitFailed { ref description } => description.fmt(f),
             DaoError::RollbackFailed { ref description } => description.fmt(f),
-            DaoError::ExecutedFailed { ref description } => description.fmt(f),
+            DaoError::ExecuteFailed { ref description } => description.fmt(f),
             DaoError::QueryFailed { ref description } => description.fmt(f),
             DaoError::OptimisticLockingFailed { ref description } => description.fmt(f),
         }
@@ -35,7 +35,7 @@ impl Error for DaoError {
         match *self {
             DaoError::CommitFailed { ref description } => description,
             DaoError::RollbackFailed { ref description } => description,
-            DaoError::ExecutedFailed { ref description } => description,
+            DaoError::ExecuteFailed { ref description } => description,
             DaoError::QueryFailed { ref description } => description,
             DaoError::OptimisticLockingFailed { ref description } => description,
         }

@@ -5,7 +5,10 @@ import sys
 import websocket
 
 
+accountKey='noaccount'
+
 def on_message(_, message):
+    global accountKey
     # print(message)
 
     frame = stomper.Frame()
@@ -17,23 +20,26 @@ def on_open(ws):
             ""
             "\n")
 
-    sub = stomper.subscribe("/account/myaccount/order_updates", 1, ack='auto')
+    sub = stomper.subscribe("/accounts/" + accountKey + "/order_updates", 1, ack='auto')
     ws.send(sub)
 
 
 def main(argv):
+    global accountKey
     try:
-        opts, args = getopt.getopt(argv, "", ["customerKey="])
+        opts, args = getopt.getopt(argv, "", ["customerKey=","accountKey="])
     except getopt.GetoptError:
         print ('oops')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '--customerKey':
             customerKey=arg
+        if opt == '--accountKey':
+            accountKey=arg
 
     websocket.enableTrace(True)
 
-    ws_app = websocket.WebSocketApp("ws://192.168.111.107:8080/ws", cookie = 'customerKey=' + customerKey, on_open=on_open, on_message=on_message)
+    ws_app = websocket.WebSocketApp("ws://192.168.111.107:8080/ws", cookie = 'customer_key=' + customerKey, on_open=on_open, on_message=on_message)
 
     ws_app.run_forever(reconnect=1)
 

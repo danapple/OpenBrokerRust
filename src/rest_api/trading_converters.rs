@@ -1,9 +1,10 @@
-use actix_web::web::ThinData;
-use uuid::Uuid;
-use crate::{entities, exchange_interface};
+use crate::entities::account::Account;
 use crate::instrument_manager::InstrumentManager;
 use crate::rest_api::trading::{Order, OrderLeg, OrderState, OrderStatus};
 use crate::time::current_time_millis;
+use crate::{entities, exchange_interface};
+use actix_web::web::ThinData;
+use uuid::Uuid;
 
 pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::trading::OrderStatus)
                                              -> OrderStatus {
@@ -27,7 +28,7 @@ impl entities::trading::OrderLeg {
 }
 
 impl entities::trading::Order {
-    pub fn to_rest_api_order(&self) -> Order {
+    pub fn to_rest_api_order(&self, account_key: &str) -> Order {
         let mut order_legs: Vec<OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
             order_legs.push(leg.to_rest_api_order_leg());
@@ -35,7 +36,7 @@ impl entities::trading::Order {
         Order {
             create_time: self.create_time,
             ext_order_id: Some(self.ext_order_id.clone()),
-            account_key: Some(self.account_key.clone()),
+            account_key: Some(account_key.to_string()),
             price: self.price,
             quantity: self.quantity,
             legs: order_legs,
@@ -44,12 +45,12 @@ impl entities::trading::Order {
 }
 
 impl entities::trading::OrderState {
-    pub fn to_rest_api_order_state(&self) -> OrderState {
+    pub fn to_rest_api_order_state(&self, account_key: &str) -> OrderState {
         OrderState{
             update_time: self.update_time,
             order_status: self.order_status.clone(),
             remaining_quantity: 0,
-            order: self.order.to_rest_api_order()
+            order: self.order.to_rest_api_order(account_key)
         }
     }
 }
@@ -75,7 +76,7 @@ impl Order {
         order_exchange
     }
 
-    pub fn to_entities_order(&self, client_order_id: String) -> entities::trading::Order {
+    pub fn to_entities_order(&self, account: &Account, client_order_id: String) -> entities::trading::Order {
         let mut order_legs: Vec<entities::trading::OrderLeg> = Vec::new();
 
         for leg in self.legs.iter() {
@@ -88,7 +89,7 @@ impl Order {
 
         let order_entity = entities::trading::Order {
             order_id: 0,
-            account_key: self.account_key.clone().unwrap(),
+            account_id: account.account_id,
             ext_order_id: self.ext_order_id.clone().unwrap(),
             client_order_id,
             create_time: current_time_millis(),

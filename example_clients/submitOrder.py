@@ -13,7 +13,7 @@ def main(argv):
     instrumentId=''
     client_order_id=''
     try:
-       opts, args = getopt.getopt(argv, "", ["instrumentId=","price=","quantity=","accountKey="])
+       opts, args = getopt.getopt(argv, "", ["instrumentId=","price=","quantity=","accountKey=","customerKey="])
     except getopt.GetoptError:
        print ('oops')
        sys.exit(2)
@@ -26,7 +26,8 @@ def main(argv):
              instrumentId=arg
          if opt == '--accountKey':
              accountKey=arg
-
+         if opt == '--customerKey':
+             customerKey=arg
 
     req = { "price": float(price), \
                            "quantity": int(quantity),
@@ -37,7 +38,7 @@ def main(argv):
                            
                          
 
-    cookies = { "customer_key": customer_key }
+    cookies = { "customer_key": customerKey }
 
     #path="http://openexchange.eu-central-1.elasticbeanstalk.com/order/" + client_order_id
     path="http://localhost:8080/accounts/" + accountKey + "/orders"
