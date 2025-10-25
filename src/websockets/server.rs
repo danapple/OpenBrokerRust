@@ -215,7 +215,7 @@ async fn ws_handler(
                 let subscription_id = subscriptions.get_by_left(&queue_item.destination);
                 match subscription_id {
                     Some(id) => {
-                        let data_message = stomp::data_message(queue_item.destination, id.clone(), &queue_item.body);
+                        let data_message = stomp::text_message(queue_item.destination, id.clone(), &queue_item.body);
                         let data_message_string = data_message.to_string();
                         info!("Sending {}", data_message_string);
                         session.text(data_message_string).await.unwrap();

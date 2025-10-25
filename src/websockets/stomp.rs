@@ -17,17 +17,7 @@ pub fn subscribe_message(subscription_id: u32, destination: &str) -> Message {
     Message::text(format!("SUBSCRIBE\nid:{}\ndestination:{}\nack:auto\n\n\x00", subscription_id, destination))
 }
 
-pub fn data_message(destination: String, subscription: String, thing: &impl Serialize) -> Message{
-    let string = match serde_json::to_string(thing) {
-        Ok(x) => x,
-        Err(_) => todo!(),
-    };
-    text_message(destination,
-                 subscription,
-                 Uuid::new_v4().simple().to_string(),
-                 string)
-}
-fn text_message(destination: String, subscription: String, message_id: String, body: String) -> Message {
+pub fn text_message(destination: String, subscription: String, body: &String) -> Message {
     Message::text(format!("\
     MESSAGE\n\
     destination:{}\n\
@@ -35,12 +25,12 @@ fn text_message(destination: String, subscription: String, message_id: String, b
     subscription:{}\n\
     message_id:{}\n\
     content_length:{}\n\n\
-    body:{}\n\
+    {}\n\
     \n\x00",
     destination,
     APPLICATION_JSON,
         subscription,
-        message_id,
+        Uuid::new_v4().simple().to_string(),
         body.len(),
         body))
 }

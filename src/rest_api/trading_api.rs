@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
+use crate::rest_api::base_api::send_order_state;
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::time::current_time_millis;
@@ -165,7 +166,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
-    web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+    send_order_state(&mut web_socket_server, &account_key, &order_state);
 
     let response = instrument.exchange_client.submit_order(exchange_order).await;
 
@@ -186,7 +187,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
             Ok(x) => x,
             Err(_) => todo!(),
         };
-        web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+        send_order_state(&mut web_socket_server, &account_key, &order_state);
     }
 
     HttpResponse::Ok()
@@ -234,7 +235,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
-    web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+    send_order_state(&mut web_socket_server, &account_key, &order_state);
 
     let instrument = instrument_manager.get_instrument(match order_state.order.legs.first() {
         Some(x) => x,
@@ -254,7 +255,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
-    web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+    send_order_state(&mut web_socket_server, &account_key, &order_state);
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
