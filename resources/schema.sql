@@ -1,3 +1,7 @@
+
+DROP TABLE IF EXISTS balance;
+DROP TABLE IF EXISTS position;
+
 DROP TABLE IF EXISTS order_state_history;
 DROP TABLE IF EXISTS trade;
 DROP TABLE IF EXISTS order_state;
@@ -90,7 +94,7 @@ CREATE UNIQUE INDEX unq_accountId_extOrder ON order_base (accountId, extOrderId)
 CREATE TABLE IF NOT EXISTS order_leg (
       orderLegId BIGSERIAL PRIMARY KEY,
       orderId BIGINT NOT NULL REFERENCES order_base,
-      instrumentId BIGINT NOT NULL, --  REFERENCES instrument,
+      instrumentId BIGINT NOT NULL REFERENCES instrument,
       ratio INT NOT NULL
 );
 
@@ -129,10 +133,29 @@ CREATE TABLE IF NOT EXISTS trade (
       price FLOAT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS position (
+    positionId BIGSERIAL PRIMARY KEY,
+    accountId BIGINT NOT NULL REFERENCES account,
+    instrumentId BIGINT NOT NULL REFERENCES instrument,
+    cost REAL NOT NULL,
+    quantity INT NOT NULL,
+    closedGain REAL NOT NULL,
+    updateTime BIGINT NOT NULL,
+    versionNumber BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS balance (
+    balanceId BIGSERIAL PRIMARY KEY,
+    accountId BIGINT NOT NULL REFERENCES account,
+    cash REAL NOT NULL,
+    updateTime BIGINT NOT NULL,
+    versionNumber BIGINT NOT NULL
+);
+
 
 GRANT SELECT ON TABLE customer, api_key, account, customer_account_relationship, privilege,access TO broker_user;
 
-GRANT SELECT, INSERT ON TABLE order_base, order_leg, order_status, order_state, order_state_history, trade TO broker_user;
-GRANT UPDATE ON TABLE public.order_state TO broker_user;
+GRANT SELECT, INSERT ON TABLE order_base, order_leg, order_status, order_state, order_state_history, trade, position, balance TO broker_user;
+GRANT UPDATE ON TABLE public.order_state, public.position, public.balance TO broker_user;
 
 GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO broker_user;

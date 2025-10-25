@@ -50,7 +50,8 @@ impl entities::trading::OrderState {
             update_time: self.update_time,
             order_status: self.order_status.clone(),
             remaining_quantity: 0,
-            order: self.order.to_rest_api_order(account_key)
+            version_number: self.version_number,
+            order: self.order.to_rest_api_order(account_key),
         }
     }
 }

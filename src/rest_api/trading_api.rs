@@ -2,7 +2,7 @@ use crate::access_control::{AccessControl, Privilege};
 use std::collections::HashMap;
 use std::string::ToString;
 
-use crate::constants::{APPLICATION_JSON, ORDER_UPDATE_QUEUE_NAME};
+use crate::constants::{ACCOUNT_UPDATE_QUEUE_NAME, APPLICATION_JSON};
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::{web, HttpRequest, HttpResponse};
 use log::{error, info};
@@ -66,7 +66,7 @@ pub async fn get_order(dao: ThinData<Dao>,
     let mut db_connection = dao.get_connection().await;
     let txn = dao.begin(&mut db_connection).await;
 
-    let order_state_option = match txn.get_order(&account_key, &ext_order_id).await {
+    let order_state_option = match txn.get_order_by_ext_order_id(&account_key, &ext_order_id).await {
         Ok(x) => x,
         Err(_) => return HttpResponse::NotFound().finish(),
     };
@@ -165,7 +165,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
-    web_socket_server.send_account_message(account_key.as_str(), ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+    web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
 
     let response = instrument.exchange_client.submit_order(exchange_order).await;
 
@@ -186,7 +186,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
             Ok(x) => x,
             Err(_) => todo!(),
         };
-        web_socket_server.send_account_message(account_key.as_str(), ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+        web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
     }
 
     HttpResponse::Ok()
@@ -211,7 +211,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     let mut db_connection = dao.get_connection().await;
     let txn = dao.begin(&mut db_connection).await;
 
-    let order_state_option = match txn.get_order(&account_key, &ext_order_id).await {
+    let order_state_option = match txn.get_order_by_ext_order_id(&account_key, &ext_order_id).await {
         Ok(x) => x,
         Err(_) => todo!(),
     };
@@ -234,7 +234,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
-    web_socket_server.send_account_message(account_key.as_str(), ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+    web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
 
     let instrument = instrument_manager.get_instrument(match order_state.order.legs.first() {
         Some(x) => x,
@@ -254,7 +254,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(_) => todo!(),
     };
-    web_socket_server.send_account_message(account_key.as_str(), ORDER_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
+    web_socket_server.send_account_message(account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &order_state.to_rest_api_order_state(account_key.as_str()));
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)

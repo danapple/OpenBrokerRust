@@ -12,11 +12,13 @@ pub struct Position {
     pub account_key: String,
     pub instrument_id: i64,
     pub quantity: i32,
-    pub cost: f64,
+    pub cost: f32,
+    pub version_number: i64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Balance {
     pub account_key: String,
-    pub cash: f64,
+    pub cash: f32,
+    pub version_number: i64,
 }

@@ -65,7 +65,7 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
         match msg? {
             Message::Text(text) => {
                 trace!("Received message: {} on client", text);
-                match parse_message(&text) {
+                match parse_message(&text.to_string()) {
                     StompMessage::Message(msg) => {
                         debug!("Handling StompMessage:Message");
                         match unboxed_handlers.get(msg.destination.as_str()) {

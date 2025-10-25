@@ -4,6 +4,8 @@ use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
 use actix_web::web::{Path, ThinData};
 use actix_web::{HttpRequest, HttpResponse};
+use log::error;
+use std::collections::HashMap;
 
 #[get("/accounts/{account_key}/positions")]
 pub async fn get_positions(dao: ThinData<Dao>,
@@ -20,11 +22,16 @@ pub async fn get_positions(dao: ThinData<Dao>,
     let txn = dao.begin(&mut db_connection).await;
     let positions = match txn.get_positions(account_key).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(y) => {
+            error!("get_positions error: {}", y);
+            return HttpResponse::NotFound()
+                .content_type(APPLICATION_JSON)
+                .finish();
+        },
     };
-    let mut rest_api_positions = Vec::new();
-    for position in positions {
-        rest_api_positions.push(position.to_rest_api_position(account_key));
+    let mut rest_api_positions = HashMap::new();
+    for position in positions.values() {
+        rest_api_positions.insert(position.position_id, position.to_rest_api_position(account_key));
     }
     
     HttpResponse::Ok()
@@ -44,13 +51,19 @@ pub async fn get_balance(dao: ThinData<Dao>,
     }
     let mut db_connection = dao.get_connection().await;
     let txn = dao.begin(&mut db_connection).await;
-    let entities_balance = match txn.get_balances(account_key).await {
-        Ok(x) => x,
-        Err(_) => todo!(),
-    };
-    HttpResponse::Ok()
-        .content_type(APPLICATION_JSON)
-        .json(Vec::new().push(entities_balance.to_rest_api_balance(account_key)))
+    match txn.get_balance(account_key).await {
+        Ok(balance) => {
+            HttpResponse::Ok()
+                .content_type(APPLICATION_JSON)
+                .json(Vec::new().push(balance.to_rest_api_balance(account_key)))
+        }
+        Err(y) => {
+            error!("get_balance error {}", y);
+            HttpResponse::NotFound()
+                .content_type(APPLICATION_JSON)
+                .finish()
+        }
+    }
 }
 
 #[get("/accounts/{account_key}")]
@@ -65,11 +78,17 @@ pub async fn get_account(dao: ThinData<Dao>,
     }
     let mut db_connection = dao.get_connection().await;
     let txn = dao.begin(&mut db_connection).await;
-    let account = match txn.get_account_by_account_key(account_key).await {
-        Ok(x) => x,
-        Err(_) => todo!(),
-    };
-    HttpResponse::Ok()
-        .content_type(APPLICATION_JSON)
-        .json(account.to_rest_api_account())
+    match txn.get_account_by_account_key(account_key).await {
+        Ok(account) => {
+            HttpResponse::Ok()
+                .content_type(APPLICATION_JSON)
+                .json(account.to_rest_api_account())
+        },
+        Err(y) =>  {
+            error!("get_account error {}", y);
+            HttpResponse::NotFound()
+                .content_type(APPLICATION_JSON)
+                .finish()
+        }
+    }
 }

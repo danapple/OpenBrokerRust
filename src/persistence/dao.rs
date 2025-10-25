@@ -1,3 +1,4 @@
+use crate::entities::account::Position;
 use crate::entities::trading::{Order, OrderState};
 use crate::rest_api::trading::OrderStatus;
 use deadpool_postgres::{Object, Pool, Transaction};
@@ -15,7 +16,6 @@ pub enum DaoError {
     ExecuteFailed { description: String },
     QueryFailed { description: String },
     OptimisticLockingFailed { description: String },
-
 }
 
 impl fmt::Display for DaoError {

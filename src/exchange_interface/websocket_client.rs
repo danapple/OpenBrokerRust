@@ -1,5 +1,6 @@
 use crate::config::BrokerConfig;
 use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, LastTrade, MarketDepth, OrderState};
+use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::websockets;
 use crate::websockets::server::WebSocketServer;
@@ -12,7 +13,8 @@ pub struct ExchangeWebsocketClient {
     pub config: BrokerConfig,
     pub dao: Dao,
     pub web_socket_server: WebSocketServer,
-    pub execution_handler: fn(&Dao, &WebSocketServer, Execution) ,
+    pub instrument_manager: InstrumentManager,
+    pub execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, instrument_manager: InstrumentManager, Execution) ,
     pub order_state_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, OrderState),
     pub depth_handler: fn(&Dao, &WebSocketServer, MarketDepth),
     pub last_trade_handler: fn(&Dao, &WebSocketServer, LastTrade),
@@ -23,7 +25,8 @@ impl ExchangeWebsocketClient {
     pub fn new(config: BrokerConfig,
                dao: Dao,
                web_socket_server: WebSocketServer,
-               execution_handler: fn(&Dao, &WebSocketServer, Execution),
+               instrument_manager: InstrumentManager,
+               execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, instrument_manager: InstrumentManager, Execution),
                order_state_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, OrderState),
                depth_handler: fn(&Dao, &WebSocketServer, MarketDepth),
                last_trade_handler: fn(&Dao, &WebSocketServer, LastTrade)) -> Self {
@@ -31,6 +34,7 @@ impl ExchangeWebsocketClient {
             config,
             dao,
             web_socket_server,
+            instrument_manager,
             execution_handler,
             order_state_handler,
             depth_handler,
@@ -41,7 +45,7 @@ impl ExchangeWebsocketClient {
     pub async fn start_exchange_websockets(&self) {
         let mut conn = websockets::client::WebsocketClient::new(&self.config);
 
-        conn.subscribe("/user/queue/executions", build_executions_receiver(self.mutex.clone(), self.dao.clone(), self.web_socket_server.clone(), self.execution_handler, self.order_state_handler));
+        conn.subscribe("/user/queue/executions", build_executions_receiver(self.mutex.clone(), self.dao.clone(), self.web_socket_server.clone(), self.instrument_manager.clone(), self.execution_handler, self.order_state_handler));
         conn.subscribe("/topics/depth", build_depth_receiver(self.mutex.clone(), self.dao.clone(), self.web_socket_server.clone(), self.depth_handler));
         conn.subscribe( "/topics/trades", build_last_trade_receiver(self.mutex.clone(), self.dao.clone(), self.web_socket_server.clone(), self.last_trade_handler));
 
@@ -49,9 +53,9 @@ impl ExchangeWebsocketClient {
     }
 }
 
-fn build_executions_receiver(mutex: Arc<Mutex<()>>, dao: Dao, web_socket_server: WebSocketServer, execution_handler: fn(&Dao, &WebSocketServer, Execution),
+fn build_executions_receiver(mutex: Arc<Mutex<()>>, dao: Dao, web_socket_server: WebSocketServer, instrument_manager: InstrumentManager, execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, instrument_manager: InstrumentManager, Execution),
                              order_state_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, OrderState)) -> Arc<dyn Fn(&MessageContent) + Send + Sync + 'static> {
-    Arc::new(move |message| executions_receiver(mutex.clone(), &dao, &web_socket_server, execution_handler, order_state_handler, message))
+    Arc::new(move |message| executions_receiver(mutex.clone(), &dao, &web_socket_server, instrument_manager.clone(),  execution_handler, order_state_handler, message))
 }
 
 fn build_depth_receiver(mutex: Arc<Mutex<()>>, dao: Dao, web_socket_server: WebSocketServer, depth_handler: fn(&Dao, &WebSocketServer, MarketDepth)) -> Arc<dyn Fn(&MessageContent)  + Send + Sync + 'static> {
@@ -63,7 +67,9 @@ fn build_last_trade_receiver(mutex: Arc<Mutex<()>>, dao: Dao, web_socket_server:
     Arc::new(move |message| last_trade_receiver(mutex.clone(), &dao, &web_socket_server, last_trade_handler, message))
 }
 
-fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, execution_handler: fn(&Dao, &WebSocketServer, Execution),
+fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: InstrumentManager,
+                       execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer,
+                                             instrument_manager: InstrumentManager, Execution),
                        order_state_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, OrderState),
                        stomp_message: &MessageContent) {
     debug!("executions_receiver {} : '{}'", stomp_message.destination, stomp_message.body);
@@ -75,13 +81,13 @@ fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &Web
     match wrapper.order_state {
         None => {}
         Some(order_state) => {
-            (order_state_handler)(mutex, dao, web_socket_server, order_state);
+            (order_state_handler)(mutex.clone(), dao, web_socket_server, order_state);
         }
     }
     match wrapper.execution {
         None => {}
         Some(execution) => {
-            (execution_handler)(dao, web_socket_server, execution);
+            (execution_handler)(mutex, dao, web_socket_server, instrument_manager, execution);
         }
     }
 

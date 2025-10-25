@@ -1,10 +1,11 @@
+use crate::exchange_interface::exchange_client::ExchangeClient;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use crate::exchange_interface::exchange_client::ExchangeClient;
 
 #[derive(Clone)]
 pub struct InstrumentManager {
     instruments: Arc<RwLock<HashMap<i64, Instrument>>>,
+    instruments_by_exchange_instrument_id: Arc<RwLock<HashMap<i64, Instrument>>>,
     next_instrument_id: Arc<RwLock<i64>>,
 }
 
@@ -22,6 +23,7 @@ impl InstrumentManager {
     pub fn new () -> Self {
         InstrumentManager {
             instruments: Arc::new(RwLock::new(HashMap::new())),
+            instruments_by_exchange_instrument_id: Arc::new(RwLock::new(HashMap::new())),
             next_instrument_id: Arc::new(RwLock::new(0)),
         }
     }
@@ -42,8 +44,11 @@ impl InstrumentManager {
         match self.instruments.write() {
             Ok(x) => x,
             Err(_) => todo!(),
-        }.insert(instrument_id.clone(), instrument);
-
+        }.insert(instrument_id.clone(), instrument.clone());
+        match self.instruments_by_exchange_instrument_id.write() {
+            Ok(x) => x,
+            Err(_) => todo!(),
+        }.insert(exchange_instrument_id, instrument);
         instrument_id.clone()
     }
 
@@ -53,6 +58,17 @@ impl InstrumentManager {
             Err(_) => todo!(),
         };
         match instruments.get(&instrument_id) {
+            Some(x) => x.clone(),
+            None => todo!(),
+        }
+    }
+
+    pub fn get_instrument_by_exchange_instrument_id(&self, exchange_instrument_id: i64) -> Instrument {
+        let instruments = match self.instruments_by_exchange_instrument_id.read() {
+            Ok(x) => x,
+            Err(_) => todo!(),
+        };
+        match instruments.get(&exchange_instrument_id) {
             Some(x) => x.clone(),
             None => todo!(),
         }

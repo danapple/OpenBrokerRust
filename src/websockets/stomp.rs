@@ -6,15 +6,15 @@ use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
 
 pub fn connect_message() -> Message {
-    Message::Text("CONNECT\naccept-version:1.2,2.0\n\n\x00".to_string())
+    Message::text("CONNECT\naccept-version:1.2,2.0\n\n\x00")
 }
 
 pub fn connected_message() -> Message {
-    Message::Text("CONNECTED\nversion:1.2\n\n\x00".to_string())
+    Message::text("CONNECTED\nversion:1.2\n\n\x00")
 }
 
 pub fn subscribe_message(subscription_id: u32, destination: &str) -> Message {
-    Message::Text(format!("SUBSCRIBE\nid:{}\ndestination:{}\nack:auto\n\n\x00", subscription_id, destination))
+    Message::text(format!("SUBSCRIBE\nid:{}\ndestination:{}\nack:auto\n\n\x00", subscription_id, destination))
 }
 
 pub fn data_message(destination: String, subscription: String, thing: &impl Serialize) -> Message{
@@ -28,7 +28,7 @@ pub fn data_message(destination: String, subscription: String, thing: &impl Seri
                  string)
 }
 fn text_message(destination: String, subscription: String, message_id: String, body: String) -> Message {
-    Message::Text(format!("\
+    Message::text(format!("\
     MESSAGE\n\
     destination:{}\n\
     content_type:{}\n\

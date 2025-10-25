@@ -1,7 +1,7 @@
 use crate::entities::trading::{Order, OrderLeg, OrderState};
 use crate::persistence::dao::{DaoError, DaoTransaction};
 use crate::rest_api::trading::OrderStatus;
-use deadpool_postgres::{Pool, Transaction};
+use deadpool_postgres::Transaction;
 use log::error;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -88,7 +88,7 @@ impl<'b> DaoTransaction<'b> {
         self.insert_order_state_history(&order_state).await
     }
 
-    pub async fn insert_order_state_history(&self, order_state: &OrderState) -> Result<(), DaoError> {
+    async fn insert_order_state_history(&self, order_state: &OrderState) -> Result<(), DaoError> {
         match self.transaction.execute(
             "INSERT INTO order_state_history \
                 (orderId, orderStatus, createTime, versionNumber) \
@@ -107,18 +107,18 @@ impl<'b> DaoTransaction<'b> {
     pub async fn get_orders(&self, account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
-        query_string.push_str("WHERE account.accountKey");
+        query_string.push_str("WHERE account.accountKey = $1");
         let res = match self.transaction.query(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_order {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
+            Err(y) => { error!("get_orders {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
         };
 
         let order_state_map = convert_rows_to_order_states(res);
         Ok(order_state_map)
     }
 
-    pub async fn get_order(&self, account_key: &String, ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
+    pub async fn get_order_by_ext_order_id(&self, account_key: &String, ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
         query_string.push_str("WHERE account.accountKey = $1 AND base.extOrderId = $2");
@@ -131,7 +131,7 @@ impl<'b> DaoTransaction<'b> {
         let order_state_map = convert_rows_to_order_states(res);
         let order_state = match order_state_map.get(ext_order_id) {
             None => {None}
-            Some(x) => {Some(x.clone())}
+            Some(x) => { Some(x.clone()) }
         };
         Ok(order_state)
     }

@@ -18,6 +18,7 @@ impl entities::account::Position {
             instrument_id: self.instrument_id,
             quantity: self.quantity,
             cost: self.cost,
+            version_number: self.version_number,
         }
     }
 }
@@ -27,6 +28,7 @@ impl entities::account::Balance {
         Balance {
             account_key: account_key.to_string(),
             cash: self.cash,
+            version_number: self.version_number,
         }
     }
 }
