@@ -73,6 +73,7 @@ pub struct OrderState {
 pub struct Order {
     #[serde(default)]
     pub create_time: i64,
+    pub order_number: Option<i32>,
     pub ext_order_id: Option<String>,
     pub account_key: Option<String>,
     pub price: f32,

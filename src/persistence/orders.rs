@@ -1,7 +1,6 @@
 use crate::entities::trading::{Order, OrderLeg, OrderState};
 use crate::persistence::dao::{DaoError, DaoTransaction};
 use crate::rest_api::trading::OrderStatus;
-use deadpool_postgres::Transaction;
 use log::error;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -10,13 +9,33 @@ use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
     pub async fn save_order(&self, mut order_state: OrderState) -> Result<OrderState, DaoError> {
+
+        let order_number_row = match self.transaction.query_one(
+            "INSERT INTO order_number_generator \
+            (accountId, lastOrderNumber) \
+            VALUES ($1, 1) \
+            ON CONFLICT (accountId) \
+            DO UPDATE \
+            SET lastOrderNumber = order_number_generator.lastOrderNumber + 1 \
+            RETURNING order_number_generator.lastOrderNumber",
+            &[&order_state.order.account_id,
+            ]
+        ).await {
+            Ok(x) => x,
+            Err(y) => { error!("save_order {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+        };
+        let order_number =  order_number_row.get("lastOrderNumber");
+
+        order_state.order.order_number = order_number;
+
         let row = match self.transaction.query_one(
             "INSERT INTO order_base \
-            (accountId, extOrderId, clientOrderId, createTime, price, quantity) \
-            VALUES ($1, $2, $3, $4, $5, $6) \
+            (accountId, extOrderId, orderNumber, clientOrderId, createTime, price, quantity) \
+            VALUES ($1, $2, $3, $4, $5, $6, $7) \
             RETURNING orderId",
             &[&order_state.order.account_id,
                      &order_state.order.ext_order_id,
+                     &order_state.order.order_number,
                      &order_state.order.client_order_id,
                      &order_state.order.create_time,
                      &order_state.order.price,
@@ -28,6 +47,7 @@ impl<'b> DaoTransaction<'b> {
         };
         let order_id =  row.get("orderId");
         order_state.order.order_id = order_id;
+
 
         for leg in &order_state.order.legs {
             match self.transaction.query(
@@ -107,7 +127,9 @@ impl<'b> DaoTransaction<'b> {
     pub async fn get_orders(&self, account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
-        query_string.push_str("WHERE account.accountKey = $1");
+        query_string.push_str("WHERE account.accountKey = $1 ");
+        query_string.push_str("ORDER BY base.orderNumber DESC");
+
         let res = match self.transaction.query(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
@@ -185,6 +207,7 @@ fn convert_row_to_order_state(row: &Row) -> OrderState {
         order: Order {
             order_id: row.get("orderId"),
             account_id: row.get("accountId"),
+            order_number: row.get("orderNumber"),
             ext_order_id: row.get("extOrderId"),
             client_order_id: row.get("clientOrderId"),
             create_time: row.get("createTime"),
@@ -198,7 +221,8 @@ fn convert_row_to_order_state(row: &Row) -> OrderState {
     }
 }
 
-const ORDER_QUERY: &str = "SELECT base.orderId, base.accountId, base.extOrderId, base.clientOrderId, base.createTime, base.price, base.quantity, \
+const ORDER_QUERY: &str = "SELECT base.orderId, base.accountId, base.orderNumber, \
+base.extOrderId, base.clientOrderId, base.createTime, base.price, base.quantity, \
 state.orderStatus, state.updateTime, state.versionNumber, \
 leg.orderLegId, leg.instrumentId, leg.ratio \
 FROM order_base AS base \

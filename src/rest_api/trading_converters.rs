@@ -35,6 +35,7 @@ impl entities::trading::Order {
         };
         Order {
             create_time: self.create_time,
+            order_number: Some(self.order_number),
             ext_order_id: Some(self.ext_order_id.clone()),
             account_key: Some(account_key.to_string()),
             price: self.price,
@@ -91,6 +92,7 @@ impl Order {
         let order_entity = entities::trading::Order {
             order_id: 0,
             account_id: account.account_id,
+            order_number: self.order_number.unwrap_or(0),
             ext_order_id: self.ext_order_id.clone().unwrap(),
             client_order_id,
             create_time: current_time_millis(),

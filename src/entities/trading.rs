@@ -27,6 +27,7 @@ impl OrderState {
 pub struct Order {
     pub order_id: i64,
     pub account_id: i64,
+    pub order_number: i32,
     pub ext_order_id: String,
     pub client_order_id: String,
     pub create_time: i64,
