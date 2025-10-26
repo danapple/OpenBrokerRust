@@ -90,6 +90,9 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
                     StompMessage::Connect(ct) => {
                         error!("Received unexpected Connect message on client: {}", ct.accept_version);
                     },
+                    StompMessage::Send(snd) => {
+                        error!("Received unexpected Send message on client: {}", snd.destination);
+                    },
                     StompMessage::Disconnect(_) => {
                         todo!()
                     },

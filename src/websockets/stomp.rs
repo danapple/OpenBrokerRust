@@ -1,6 +1,7 @@
 use crate::constants::APPLICATION_JSON;
+use actix_web::Scope;
 use log::{error, info};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
@@ -37,6 +38,7 @@ pub fn text_message(destination: String, subscription: String, body: &String) ->
 
 pub enum StompMessage {
     Message(MessageContent),
+    Send(SendContent),
     Connect(ConnectContent),
     Connected(ConnectedContent),
     Subscribe(SubscribeContent),
@@ -50,6 +52,12 @@ pub struct MessageContent {
     pub subscription: u16,
     pub message_id: String,
     pub content_length: u16,
+    pub body: String,
+}
+
+#[derive(Debug)]
+pub struct SendContent {
+    pub destination: String,
     pub body: String,
 }
 
@@ -77,6 +85,7 @@ pub struct DisconnectContent {
 }
 
 const MESSAGE: &'static str = "MESSAGE";
+const SEND: &'static str = "SEND";
 const CONNECT: &'static str = "CONNECT";
 const CONNECTED: &'static str = "CONNECTED";
 const SUBSCRIBE: &'static str = "SUBSCRIBE";
@@ -132,6 +141,12 @@ pub fn parse_message(message: &String) -> StompMessage {
                 content_length: vals[CONTENT_LENGTH].parse::<u16>().unwrap(),
                 subscription: vals[SUBSCRIPTION].parse::<u16>().unwrap(),
                 message_id: vals[MESSAGE_ID].to_string(),
+            })
+        },
+        SEND => {
+            StompMessage::Send(SendContent {
+                destination: vals[DESTINATION].to_string(),
+                body: vals[BODY].to_string(),
             })
         },
         CONNECT => {

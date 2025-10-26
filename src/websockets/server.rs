@@ -1,20 +1,20 @@
 use crate::access_control::{AccessControl, Privilege};
+use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
+use crate::websockets::senders::{send_balance, send_orders, send_positions};
 use crate::websockets::stomp;
-use crate::websockets::stomp::parse_message;
+use crate::websockets::stomp::{parse_message, SendContent};
 use actix_web::web::ThinData;
-use actix_web::{error, web, Error, HttpRequest, HttpResponse};
+use actix_web::{error, web, HttpRequest, HttpResponse};
 use actix_ws::AggregatedMessage;
 use bimap::{BiHashMap, BiMap};
 use futures_util::StreamExt;
 use log::trace;
 use log::{debug, error, info, warn};
 use serde;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::hash::Hash;
-use std::ops::Index;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use strfmt::strfmt;
@@ -31,9 +31,9 @@ pub struct WebSocketServer {
 }
 
 #[derive(Serialize, Clone, Debug)]
-struct QueueItem {
-    destination: String,
-    body: String
+pub(crate) struct QueueItem {
+    pub(crate) destination: String,
+    pub(crate) body: String
 }
 
 impl WebSocketServer {
@@ -89,10 +89,11 @@ impl WebSocketServer {
 
 pub async fn ws_setup(
     req: HttpRequest,
+    dao: ThinData<Dao>,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     stream: web::Payload,
-) -> Result<HttpResponse, Error> {
+) -> Result<HttpResponse, actix_web::Error> {
 
     let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
 
@@ -107,6 +108,7 @@ pub async fn ws_setup(
 
     info!("Websocket connection established for {}", customer_key);
     spawn_local(ws_handler(
+        dao,
         session,
         web_socket_server,
         access_control,
@@ -118,6 +120,7 @@ pub async fn ws_setup(
 }
 
 async fn ws_handler(
+    dao: ThinData<Dao>,
     mut session: actix_ws::Session,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
@@ -155,10 +158,14 @@ async fn ws_handler(
                     }
 
                     AggregatedMessage::Text(text) => {
-                        info!("Text message {}", text);
+                        debug!("Text message {}", text);
                         match parse_message(&text.to_string()) {
                             StompMessage::Message(msg) => {
                                 error!("Received unexpected Message message on server: {}", msg.body);
+                            }
+                            StompMessage::Send(msg) => {
+                                info!("Received expected Send message on server: {} {}", msg.destination, msg.body );
+                                send_content(dao.clone(), &access_control, conn_tx.clone(), &customer_key, msg).await;
                             }
                             StompMessage::Connected(ct) => {
                                 error!("Received unexpected Connected message on server: {}", ct.user_name);
@@ -168,6 +175,7 @@ async fn ws_handler(
 
                                 if sub.destination.starts_with("/accounts/") {
                                     if !validate_subscription(&access_control, &sub.destination, &customer_key).await {
+                                        error!("Request for forbidden destination {}", sub.destination);
                                         session.clone().close(None).await.unwrap();
                                     }
                                 }
@@ -243,14 +251,76 @@ async fn ws_handler(
     let _ = session.close(close_reason).await;
 }
 
+#[derive(Debug, Deserialize)]
+enum Request {
+    GET
+}
+
+#[derive(Debug, Deserialize)]
+enum Scope {
+    #[serde(rename = "balance")]
+    Balance,
+    #[serde(rename = "positions")]
+    Positions,
+    #[serde(rename = "orders")]
+    Orders,
+}
+
+#[derive(Debug, Deserialize)]
+struct SendRequest {
+    pub request: Request,
+    pub scope: Scope,
+}
+async fn send_content(dao: ThinData<Dao>, access_control: &ThinData<AccessControl>,
+                      conn_tx: UnboundedSender<QueueItem>, customer_key: &String, content: SendContent) {
+    if !validate_subscription(&access_control, &content.destination, &customer_key).await {
+        error!("Request to send for forbidden destination {} {}", content.destination, content.body);
+        return;
+    }
+
+    tokio::spawn(async move
+        {
+            let mess: SendRequest = serde_json::from_str(content.body.as_str()).unwrap();
+            let account_key = extract_account_key(&content.destination);
+
+            match mess.request {
+                Request::GET => {
+                    send_get(dao, conn_tx, &content.destination, &account_key, mess.scope).await
+                }
+            };
+        }
+    );
+}
+
+async fn send_get(dao: ThinData<Dao>, conn_tx: UnboundedSender<QueueItem>, destination: &String, account_key: &String, scope: Scope) {
+    let mut db_connection = dao.get_connection().await;
+    let txn = dao.begin(&mut db_connection).await;
+    match scope {
+        Scope::Balance => {
+            send_balance(txn, conn_tx, destination, account_key).await;
+        }
+        Scope::Positions => {
+            send_positions(txn, conn_tx, destination, account_key).await;
+        }
+        Scope::Orders => {
+            send_orders(txn, conn_tx, destination, account_key).await;
+        }
+    };
+}
+
 async fn validate_subscription(access_control: &AccessControl, destination: &String, customer_key: &String) -> bool {
+    let account_key = extract_account_key(destination);
+    access_control.is_allowed(&account_key, Some(customer_key.to_string()), Privilege::Read).await
+}
+
+fn extract_account_key(destination: &String) -> String {
     let path_elements = destination.split("/").collect::<Vec<&str>>();
     let path_length = path_elements.len();
     if path_length != 4 {
         todo!("/account path {} has {} elements, not expected 4", destination, path_length);
     }
     let account_key = path_elements[2].to_string();
-    access_control.is_allowed(&account_key, Some(customer_key.to_string()), Privilege::Read).await
+    account_key
 }
 
 fn unsubscribe_all(web_socket_server: &ThinData<WebSocketServer>, subscriptions: &mut BiHashMap<String, String>, conn_tx: &UnboundedSender<QueueItem>) {
