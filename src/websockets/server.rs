@@ -47,11 +47,23 @@ impl WebSocketServer {
     pub fn send_account_message(&mut self, account_key: &str, destination: &str, body: &impl Serialize) {
         let mut vars = HashMap::new();
         vars.insert("account_key".to_string(), account_key);
-        let new_destination = strfmt(destination, &vars).unwrap();
+        let new_destination = match strfmt(destination, &vars) {
+            Ok(new_destination) => new_destination,
+            Err(fmt_error) => {
+                error!("send_account_message strfmt error {}", fmt_error.to_string());
+                return;
+            },
+        };
         self.send_message(new_destination, body);
     }
     pub fn send_message(&mut self, destination: String, body: &impl Serialize) {
-        let serialized_body = serde_json::to_string(body).unwrap();
+        let serialized_body = match serde_json::to_string(body) {
+            Ok(x) => x,
+            Err(fmt_error) => {
+                error!("send_message serialization error {}", fmt_error.to_string());
+                return;
+            },
+        };
         info!("send_message: {} : {}", destination, serialized_body);
         let queue_item = QueueItem{
             destination: destination.clone(),
@@ -154,7 +166,13 @@ async fn ws_handler(
                     AggregatedMessage::Ping(bytes) => {
                         trace!("Websocket Ping");
                         last_heartbeat = Instant::now();
-                        session.pong(&bytes).await.unwrap();
+                        match session.pong(&bytes).await {
+                            Ok(_) => {},
+                            Err(closed) => {
+                                error!("Ping error while sending pong {}", closed);
+                                return;
+                            },
+                        };
                     }
 
                     AggregatedMessage::Pong(_) => {
@@ -181,7 +199,13 @@ async fn ws_handler(
                                 if sub.destination.starts_with("/accounts/") {
                                     if !validate_subscription(&access_control, &sub.destination, &customer_key).await {
                                         error!("Request for forbidden destination {}", sub.destination);
-                                        session.clone().close(None).await.unwrap();
+                                        match session.clone().close(None).await {
+                                            Ok(_) => {},
+                                            Err(closed) => {
+                                                error!("Close error closing session {}", closed);
+                                                return;
+                                            },
+                                        };
                                     }
                                 }
                                 let mut writable_conns = match web_socket_server.connections.write() {
@@ -198,13 +222,29 @@ async fn ws_handler(
                                     Some(per_destination_conns) => {
                                         per_destination_conns.push(conn_tx.clone());
                                     },
-                                    None => todo!(),
+                                    None => {
+                                        error!("Not per_destination_conns for {}", sub.destination);
+                                        return;
+                                    },
                                 };
                                 subscriptions.insert(sub.destination.clone(), sub.id);
                             },
                             StompMessage::Connect(ct) => {
                                 info!("Received expected Connect message on server: {}", ct.accept_version);
-                                session.text(stomp::connected_message().to_string()).await.unwrap();
+                                match session.text(stomp::connected_message().to_string()).await {
+                                    Ok(_) => {},
+                                    Err(closed) => {
+                                        error!("Could not send text {}", closed);
+                                        match session.close(None).await {
+                                            Ok(_) => {},
+                                            Err(closed) => {
+                                                error!("Close error closing session {}", closed);
+                                                return;
+                                            },
+                                        };
+                                        return;
+                                    },
+                                };
                             },
                             StompMessage::Unsubscribe(us) => {
                                 info!("Received expected Unsubscribe message on server: {}", us.id);
@@ -238,7 +278,20 @@ async fn ws_handler(
                 let data_message = stomp::text_message(queue_item.destination, subscription_id.clone(), &queue_item.body);
                 let data_message_string = data_message.to_string();
                 trace!("Sending {}", data_message_string);
-                session.text(data_message_string).await.unwrap();
+                match session.text(data_message_string).await {
+                    Ok(x) => x,
+                    Err(closed) => {
+                        error!("Could not send text for queued_item {}", closed);
+                        match session.close(None).await {
+                            Ok(_) => {},
+                            Err(closed) => {
+                                error!("Close error closing session {}", closed);
+                                return;
+                            },
+                        };
+                        return;
+                    },
+                };
             }
             _ = interval.tick() => {
                 if Instant::now().duration_since(last_heartbeat) > CLIENT_TIMEOUT {
@@ -286,7 +339,13 @@ async fn send_content(dao: ThinData<Dao>, access_control: &ThinData<AccessContro
 
     tokio::spawn(async move
         {
-            let mess: SendRequest = serde_json::from_str(content.body.as_str()).unwrap();
+            let send_request: SendRequest = match serde_json::from_str(content.body.as_str()) {
+                Ok(send_request) => send_request,
+                Err(serde_error) => {
+                    error!("send_content deserialization error {}", serde_error.to_string());
+                    return;
+                }
+            };
             let account_key_result = extract_account_key(&content.destination);
             let account_key = match account_key_result {
                 Ok(account_key) => account_key,
@@ -295,9 +354,9 @@ async fn send_content(dao: ThinData<Dao>, access_control: &ThinData<AccessContro
                     return;
                 }
             };
-            match mess.request {
+            match send_request.request {
                 Request::GET => {
-                    send_get(dao, conn_tx, &content.destination, &account_key, mess.scope).await
+                    send_get(dao, conn_tx, &content.destination, &account_key, send_request.scope).await
                 }
             };
         }
