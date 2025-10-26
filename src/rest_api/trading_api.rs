@@ -9,9 +9,9 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::instrument_manager::InstrumentManager;
-use crate::persistence::dao::Dao;
+use crate::persistence::dao::{Dao, DaoError};
 use crate::rest_api::base_api;
-use crate::rest_api::base_api::send_order_state;
+use crate::rest_api::base_api::{log_dao_error_and_return_500, send_order_state};
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::time::current_time_millis;
@@ -34,19 +34,19 @@ pub async fn get_orders(dao: ThinData<Dao>,
     }
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let order_states = match txn.get_orders(&account_key).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match txn.rollback().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
 
     let mut api_order_states: HashMap<String, OrderState> = HashMap::new();
@@ -71,11 +71,11 @@ pub async fn get_order(dao: ThinData<Dao>,
     }
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
 
     let order_state_option = match txn.get_order_by_ext_order_id(&account_key, &ext_order_id).await {
@@ -84,7 +84,7 @@ pub async fn get_order(dao: ThinData<Dao>,
     };
     match txn.rollback().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match order_state_option {
         Some(x) => HttpResponse::Ok()
@@ -111,7 +111,10 @@ pub async fn preview_order(dao: ThinData<Dao>,
 
     let vetting_result = match vetter.vet_order(&rest_api_order).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(vetting_error) => {
+            error!("{}", vetting_error);
+            return HttpResponse::InternalServerError().finish()
+        },
     };
     let rest_api_vetting_result = VettingResult {
         pass: vetting_result.pass,
@@ -138,7 +141,10 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let vetting_result = match vetter.vet_order(&rest_api_order).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(vetting_error) => {
+            error!("{}", vetting_error);
+            return HttpResponse::InternalServerError().finish()
+        },
     };
     if !vetting_result.pass {
         let rest_api_vetting_result = VettingResult {
@@ -156,15 +162,16 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
+
     };
     let account = match txn.get_account_by_account_key(&account_key.clone()).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let entities_order = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone());
     let mut order_state = entities::trading::OrderState {
@@ -175,19 +182,21 @@ pub async fn submit_order(dao: ThinData<Dao>,
     };
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     order_state = match txn.save_order(order_state).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => {
+            return log_dao_error_and_return_500(dao_error);
+        },
     };
     match txn.commit().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     send_order_state(&mut web_socket_server, &account_key, &order_state);
 
@@ -200,18 +209,15 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
         let txn = match dao.begin(&mut db_connection).await {
             Ok(x) => x,
-            Err(_) => todo!(),
+            Err(dao_error) => return log_dao_error_and_return_500(dao_error),
         };
         match txn.update_order(&mut order_state).await {
             Ok(x) => x,
-            Err(y) => {
-                error!("update error {}", y.to_string());
-                todo!()
-            },
+            Err(dao_error) => return log_dao_error_and_return_500(dao_error),
         };
         match txn.commit().await {
             Ok(x) => x,
-            Err(_) => todo!(),
+            Err(dao_error) => return log_dao_error_and_return_500(dao_error),
         };
         send_order_state(&mut web_socket_server, &account_key, &order_state);
     }
@@ -237,16 +243,16 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     }
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
 
     let order_state_option = match txn.get_order_by_ext_order_id(&account_key, &ext_order_id).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
 
     let mut order_state = match order_state_option {
@@ -261,11 +267,11 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     order_state.order_status = OrderStatus::PendingCancel;
     match txn.update_order(&mut order_state).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match txn.commit().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     send_order_state(&mut web_socket_server, &account_key, &order_state);
 
@@ -280,15 +286,15 @@ pub async fn cancel_order(dao: ThinData<Dao>,
 
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match txn.update_order(&mut order_state).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match txn.commit().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     send_order_state(&mut web_socket_server, &account_key, &order_state);
 

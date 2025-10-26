@@ -2,6 +2,7 @@ use crate::access_control::{AccessControl, Privilege};
 use crate::constants::APPLICATION_JSON;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
+use crate::rest_api::base_api::log_dao_error_and_return_500;
 use actix_web::web::{Path, ThinData};
 use actix_web::{HttpRequest, HttpResponse};
 use log::error;
@@ -20,11 +21,11 @@ pub async fn get_positions(dao: ThinData<Dao>,
     }
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let positions = match txn.get_positions(account_key).await {
         Ok(x) => x,
@@ -57,11 +58,11 @@ pub async fn get_balance(dao: ThinData<Dao>,
     }
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match txn.get_balance(account_key).await {
         Ok(balance) => {
@@ -90,11 +91,11 @@ pub async fn get_account(dao: ThinData<Dao>,
     }
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     let txn = match dao.begin(&mut db_connection).await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     match txn.get_account_by_account_key(account_key).await {
         Ok(account) => {
