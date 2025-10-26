@@ -1,4 +1,5 @@
 use crate::access_control::{AccessControl, Privilege};
+use crate::errors::BrokerError;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
@@ -15,7 +16,7 @@ use log::{debug, error, info, warn};
 use serde;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LockResult, RwLock};
 use std::time::{Duration, Instant};
 use strfmt::strfmt;
 use tokio::sync::mpsc::UnboundedSender;
@@ -56,36 +57,37 @@ impl WebSocketServer {
             destination: destination.clone(),
             body: serialized_body
         };
-        match self.connections.write() {
-            Ok(mut writable_conns) => {
-                let conns_list_wrapped = writable_conns.get_mut(&destination);
-                match conns_list_wrapped {
-                    None => {
-                        debug!("No subscribers for {}", destination);
-                    }
-                    Some(conns_list) => {
-                        let mut dropped_conns = Vec::new();
-                        for (pos, conn) in conns_list.iter().enumerate() {
-                            match conn.send(queue_item.clone()) {
-                                Ok(x) => x,
-                                Err(y) => {
-                                    error!("Connection had error '{}'", y.to_string());
-                                    dropped_conns.push(pos);
-                                },
-                            };
-                        }
-                        dropped_conns.reverse();
-                        for pos in dropped_conns {
-                            conns_list.remove(pos);
-                        }
-                    }
-                }
+        let mut writable_conns = match self.connections.write() {
+            Ok(writable_conns) => writable_conns,
+            Err(poison_error) => {
+                error!("send_message could not get writable_conns {}", poison_error.to_string());
+                return;
             },
-            Err(_) => todo!(),
         };
+        let conns_list_wrapped = writable_conns.get_mut(&destination);
+        let conns_list = match conns_list_wrapped {
+            None => {
+                debug!("No subscribers for {}", destination);
+                return;
+            }
+            Some(conns_list) => conns_list
+        };
+        let mut dropped_conns = Vec::new();
+        for (pos, conn) in conns_list.iter().enumerate() {
+            match conn.send(queue_item.clone()) {
+                Ok(_) => {},
+                Err(send_error) => {
+                    error!("Connection had error '{}', dropping", send_error.to_string());
+                    dropped_conns.push(pos);
+                }
+            };
+        }
+        dropped_conns.reverse();
+        for pos in dropped_conns {
+            conns_list.remove(pos);
+        }
     }
 }
-
 
 pub async fn ws_setup(
     req: HttpRequest,
@@ -99,8 +101,11 @@ pub async fn ws_setup(
 
     let customer_key = base_api::get_customer_key(req);
     let customer_key = match customer_key {
-        Some(x) => x,
-        None => todo!("No customer key available"),
+        Some(customer_key) => customer_key,
+        None => {
+            error!("No customer key available");
+            return Err(error::ErrorBadRequest("No customer key available".to_string()));
+        }
     }.to_string();
     if customer_key.is_empty() {
         return Err(error::ErrorBadRequest("customerKey is empty"));
@@ -179,19 +184,21 @@ async fn ws_handler(
                                         session.clone().close(None).await.unwrap();
                                     }
                                 }
-                                match web_socket_server.connections.write() {
-                                    Ok(mut writable_conns) => {
-                                        if !writable_conns.contains_key(&sub.destination) {
-                                            writable_conns.insert(sub.destination.clone(), Vec::new());
-                                        }
-                                        match writable_conns.get_mut(&sub.destination) {
-                                            Some(per_destination_conns) => {
-                                                per_destination_conns.push(conn_tx.clone());
-                                            },
-                                            None => todo!(),
-                                        };
+                                let mut writable_conns = match web_socket_server.connections.write() {
+                                    Ok(writable_conns) => writable_conns,
+                                    Err(poison_error) => {
+                                        error!("Subscribe message could not get writable_conns {}", poison_error.to_string());
+                                        return;
                                     },
-                                    Err(_) => todo!(),
+                                };
+                                if !writable_conns.contains_key(&sub.destination) {
+                                    writable_conns.insert(sub.destination.clone(), Vec::new());
+                                }
+                                match writable_conns.get_mut(&sub.destination) {
+                                    Some(per_destination_conns) => {
+                                        per_destination_conns.push(conn_tx.clone());
+                                    },
+                                    None => todo!(),
                                 };
                                 subscriptions.insert(sub.destination.clone(), sub.id);
                             },
@@ -220,18 +227,18 @@ async fn ws_handler(
                 }
             }
             Some(queue_item) = conn_rx.recv() => {
-                let subscription_id = subscriptions.get_by_left(&queue_item.destination);
-                match subscription_id {
-                    Some(id) => {
-                        let data_message = stomp::text_message(queue_item.destination, id.clone(), &queue_item.body);
-                        let data_message_string = data_message.to_string();
-                        trace!("Sending {}", data_message_string);
-                        session.text(data_message_string).await.unwrap();
-                    }
+                let subscription_id_options = subscriptions.get_by_left(&queue_item.destination);
+                let subscription_id = match subscription_id_options {
+                    Some(subscription_id) => subscription_id,
                     None => {
                         debug!("No subscription for {}", queue_item.destination);
+                        return;
                     },
-                }
+                };
+                let data_message = stomp::text_message(queue_item.destination, subscription_id.clone(), &queue_item.body);
+                let data_message_string = data_message.to_string();
+                trace!("Sending {}", data_message_string);
+                session.text(data_message_string).await.unwrap();
             }
             _ = interval.tick() => {
                 if Instant::now().duration_since(last_heartbeat) > CLIENT_TIMEOUT {
@@ -240,7 +247,6 @@ async fn ws_handler(
                 }
                 let _ = session.ping(b"").await;
             }
-
             else => {
                 break None;
             }
@@ -281,8 +287,14 @@ async fn send_content(dao: ThinData<Dao>, access_control: &ThinData<AccessContro
     tokio::spawn(async move
         {
             let mess: SendRequest = serde_json::from_str(content.body.as_str()).unwrap();
-            let account_key = extract_account_key(&content.destination);
-
+            let account_key_result = extract_account_key(&content.destination);
+            let account_key = match account_key_result {
+                Ok(account_key) => account_key,
+                Err(broker_error) => {
+                    error!("{}", broker_error);
+                    return;
+                }
+            };
             match mess.request {
                 Request::GET => {
                     send_get(dao, conn_tx, &content.destination, &account_key, mess.scope).await
@@ -294,12 +306,18 @@ async fn send_content(dao: ThinData<Dao>, access_control: &ThinData<AccessContro
 
 async fn send_get(dao: ThinData<Dao>, conn_tx: UnboundedSender<QueueItem>, destination: &String, account_key: &String, scope: Scope) {
     let mut db_connection = match dao.get_connection().await {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(db_connection) => db_connection,
+        Err(dao_error) => {
+            error!("Unable to get_connection {}", dao_error);
+            return;
+        },
     };
     let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(txn) => txn,
+        Err(dao_error) => {
+            error!("Unable to get_connection {}", dao_error);
+            return;
+        },
     };
     match scope {
         Scope::Balance => {
@@ -315,18 +333,25 @@ async fn send_get(dao: ThinData<Dao>, conn_tx: UnboundedSender<QueueItem>, desti
 }
 
 async fn validate_subscription(access_control: &AccessControl, destination: &String, customer_key: &String) -> bool {
-    let account_key = extract_account_key(destination);
+    let account_key_result = extract_account_key(destination);
+    let account_key = match account_key_result {
+        Ok(account_key) => account_key,
+        Err(broker_error) => {
+            error!("{}", broker_error);
+            return false;
+        }
+    };
     access_control.is_allowed(&account_key, Some(customer_key.to_string()), Privilege::Read).await
 }
 
-fn extract_account_key(destination: &String) -> String {
+fn extract_account_key(destination: &String) -> Result<String, BrokerError> {
     let path_elements = destination.split("/").collect::<Vec<&str>>();
     let path_length = path_elements.len();
     if path_length != 4 {
-        todo!("/account path {} has {} elements, not expected 4", destination, path_length);
+        return Err(BrokerError::failure(format!("/account path {} has {} elements, not expected 4", destination, path_length)));
     }
     let account_key = path_elements[2].to_string();
-    account_key
+    Ok(account_key)
 }
 
 fn unsubscribe_all(web_socket_server: &ThinData<WebSocketServer>, subscriptions: &mut BiHashMap<String, String>, conn_tx: &UnboundedSender<QueueItem>) {
@@ -341,34 +366,36 @@ fn unsubscribe_all(web_socket_server: &ThinData<WebSocketServer>, subscriptions:
         unsubscribe(&web_socket_server, subscriptions, &conn_tx, id_to_remove.clone());
     }}
 fn unsubscribe(web_socket_server: &ThinData<WebSocketServer>, subscriptions: &mut BiHashMap<String, String>, conn_tx: &UnboundedSender<QueueItem>, id: String) {
-    match subscriptions.remove_by_right(&id) {
-        Some(destination) => {
-            match web_socket_server.connections.write() {
-                Ok(mut writable_conns) => {
-                    match writable_conns.get_mut(destination.0.as_str()) {
-                        Some(per_destination_conns) => {
-                            let index = per_destination_conns.iter().position(|this_conn| conn_tx.same_channel(this_conn));
-                            match index {
-                                Some(ind) => {
-                                    per_destination_conns.remove(ind);
-                                    info!("Unsubscribed here {}", ind);
-                                },
-                                None => {
-                                    warn!("Cannot find connection to remove for unsubscribe: {}:{}", destination.0, destination.1);
-                                }
-                            };
-
-                        },
-                        None => {
-                            warn!("Cannot find connections for unsubscribe: {}:{}", destination.0, destination.1);
-                        },
-                    };
-                },
-                Err(_) => todo!(),
-            };
-        },
+    let destination = match subscriptions.remove_by_right(&id) {
+        Some(destination) => destination,
         None => {
             warn!("Received Unsubscribe message on server for unknown subscription: {}", id);
+            return;
         },
+    };
+    let mut writable_conns = match web_socket_server.connections.write() {
+        Ok(writable_conns) => writable_conns,
+        Err(poison_error) => {
+            error!("unsubscribe could not get writable_conns {}", poison_error.to_string());
+            return;
+        }
+    };
+
+    let per_destination_conns = match writable_conns.get_mut(destination.0.as_str()) {
+        Some(per_destination_conns) => per_destination_conns,
+        _ => {
+            return;
+        }
+    };
+
+    let index = per_destination_conns.iter().position(|this_conn| conn_tx.same_channel(this_conn));
+    match index {
+        Some(ind) => {
+            per_destination_conns.remove(ind);
+            debug!("Unsubscribed here {}", ind);
+        },
+        None => {
+            warn!("Cannot find connection to remove for unsubscribe: {}:{}", destination.0, destination.1);
+        }
     };
 }
