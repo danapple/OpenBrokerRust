@@ -1,6 +1,5 @@
 use crate::entities::account::Position;
-use crate::persistence::dao::{DaoError, DaoTransaction};
-use log::error;
+use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use std::collections::HashMap;
 use tokio_postgres::Row;
 
@@ -12,7 +11,8 @@ impl<'b> DaoTransaction<'b> {
         let res = match self.transaction.query(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_positions {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_positions", db_error)); }
+
         };
 
         let positions_map = convert_rows_to_positions(res);
@@ -28,7 +28,8 @@ impl<'b> DaoTransaction<'b> {
                                                    &account_key,
                                                    &instrument_id]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_position {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_position", db_error)); }
+
         };
 
         let positions_map = convert_rows_to_positions(res);
@@ -53,7 +54,8 @@ impl<'b> DaoTransaction<'b> {
                                                           ]
         ).await {
             Ok(rows) => rows,
-            Err(y) => { error!("update_position {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("update_position", db_error)); }
+
         };
         if rows_updated == 0 {
             return Err(DaoError::OptimisticLockingFailed{ description: "update position 0 rows modified".to_string() });
@@ -75,7 +77,8 @@ impl<'b> DaoTransaction<'b> {
                 &position.version_number
             ]).await {
             Ok(x) => x,
-            Err(y) => { error!("save_position {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("save_position", db_error)); }
+
         };
         let position_id =  row.get("positionId");
         position.position_id = position_id;

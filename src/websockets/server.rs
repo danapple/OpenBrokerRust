@@ -293,8 +293,14 @@ async fn send_content(dao: ThinData<Dao>, access_control: &ThinData<AccessContro
 }
 
 async fn send_get(dao: ThinData<Dao>, conn_tx: UnboundedSender<QueueItem>, destination: &String, account_key: &String, scope: Scope) {
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     match scope {
         Scope::Balance => {
             send_balance(txn, conn_tx, destination, account_key).await;

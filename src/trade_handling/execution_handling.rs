@@ -18,8 +18,14 @@ pub fn handle_execution(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &We
 
 async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, instrument_manager: InstrumentManager, execution: Execution) {
     let _lock = mutex.lock().await;
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     let db_order_state_option = match txn.get_order_by_client_order_id(&execution.client_order_id).await {
         Err(err) => {
             error!("Unable to get_order_by_client_order_id: {}", err);

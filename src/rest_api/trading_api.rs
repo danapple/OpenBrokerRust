@@ -32,9 +32,14 @@ pub async fn get_orders(dao: ThinData<Dao>,
     if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
-
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     let order_states = match txn.get_orders(&account_key).await {
         Ok(x) => x,
         Err(_) => todo!(),
@@ -64,8 +69,14 @@ pub async fn get_order(dao: ThinData<Dao>,
     if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
 
     let order_state_option = match txn.get_order_by_ext_order_id(&account_key, &ext_order_id).await {
         Ok(x) => x,
@@ -143,8 +154,14 @@ pub async fn submit_order(dao: ThinData<Dao>,
     rest_api_order.account_key = Some(account_key.clone());
     rest_api_order.ext_order_id = Some(ext_order_id);
 
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     let account = match txn.get_account_by_account_key(&account_key.clone()).await {
         Ok(x) => x,
         Err(_) => todo!(),
@@ -156,8 +173,14 @@ pub async fn submit_order(dao: ThinData<Dao>,
         order: entities_order,
         version_number: 0,
     };
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     order_state = match txn.save_order(order_state).await {
         Ok(x) => x,
         Err(_) => todo!(),
@@ -175,7 +198,10 @@ pub async fn submit_order(dao: ThinData<Dao>,
         order_state.order_status = OrderStatus::Rejected;
         order_state.update_time = current_time_millis();
 
-        let txn = dao.begin(&mut db_connection).await;
+        let txn = match dao.begin(&mut db_connection).await {
+            Ok(x) => x,
+            Err(_) => todo!(),
+        };
         match txn.update_order(&mut order_state).await {
             Ok(x) => x,
             Err(y) => {
@@ -209,8 +235,14 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
 
     let order_state_option = match txn.get_order_by_ext_order_id(&account_key, &ext_order_id).await {
         Ok(x) => x,
@@ -246,7 +278,10 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     order_state.order_status = order_status_to_rest_api_order_status(response.order_status);
     order_state.update_time = current_time_millis();
 
-    let txn = dao.begin(&mut db_connection).await;
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     match txn.update_order(&mut order_state).await {
         Ok(x) => x,
         Err(_) => todo!(),

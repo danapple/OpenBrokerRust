@@ -15,8 +15,14 @@ pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &
 
 async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, order_state: OrderState) {
     let _lock = mutex.lock().await;
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
 
     match txn.get_order_by_client_order_id(&order_state.order.client_order_id).await {
         Ok(db_order_state_option) => {

@@ -1,6 +1,5 @@
-use crate::entities::account::{Account, Balance, Position};
-use crate::persistence::dao::{DaoError, DaoTransaction};
-use log::error;
+use crate::entities::account::Account;
+use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
@@ -12,7 +11,8 @@ impl<'b> DaoTransaction<'b> {
         let row = match self.transaction.query_one(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_account_by_account_key {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_account_by_account_key", db_error)); }
+
         };
         let account = convert_row_to_account(row);
 
@@ -26,7 +26,8 @@ impl<'b> DaoTransaction<'b> {
         let row = match self.transaction.query_one(&query_string,
                                                    &[&account_id]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_account {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_account", db_error)); }
+
         };
         let account = convert_row_to_account(row);
 

@@ -1,5 +1,5 @@
 use crate::entities::account::Balance;
-use crate::persistence::dao::{DaoError, DaoTransaction};
+use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use log::error;
 use tokio_postgres::Row;
 
@@ -16,7 +16,8 @@ impl<'b> DaoTransaction<'b> {
                                                           ]
         ).await {
             Ok(rows) => rows,
-            Err(y) => { error!("update_balance {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("update_balance", db_error)); }
+
         };
         if rows_updated == 0 {
             return Err(DaoError::OptimisticLockingFailed{ description: "update balance 0 rows modified".to_string() });
@@ -32,7 +33,7 @@ impl<'b> DaoTransaction<'b> {
         let res = match self.transaction.query(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_balance {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_balance", db_error)); }
         };
         match res.first() {
             Some(row) => {

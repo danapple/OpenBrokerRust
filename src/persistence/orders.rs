@@ -1,7 +1,6 @@
 use crate::entities::trading::{Order, OrderLeg, OrderState};
-use crate::persistence::dao::{DaoError, DaoTransaction};
+use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use crate::rest_api::trading::OrderStatus;
-use log::error;
 use std::collections::HashMap;
 use std::str::FromStr;
 use tokio_postgres::Row;
@@ -22,7 +21,7 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(x) => x,
-            Err(y) => { error!("save_order {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("save_order order number", db_error)); }
         };
         let order_number =  order_number_row.get("lastOrderNumber");
 
@@ -43,7 +42,7 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(x) => x,
-            Err(y) => { error!("save_order {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("save_order order_base", db_error)); }
         };
         let order_id =  row.get("orderId");
         order_state.order.order_id = order_id;
@@ -60,7 +59,7 @@ impl<'b> DaoTransaction<'b> {
                 ]
             ).await {
                 Ok(x) => x,
-                Err(y) => { error!("save_order leg {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+                Err(db_error) => { return Err(gen_dao_error("save_order order_leg", db_error)); }
             };
         }
 
@@ -75,12 +74,12 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(_) => 0,
-            Err(y) => { error!("save_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("save_order order_state", db_error)); }
         };
 
         match self.insert_order_state_history(&order_state).await {
             Ok(_) => {}
-            Err(y) => { return Err(y) }
+            Err(db_error) => { return Err(db_error) }
         }
         Ok(order_state)
     }
@@ -99,7 +98,8 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(rows) => rows,
-            Err(y) => { error!("update_order order_state {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("update_order order_state", db_error)); }
+
         };
         if rows_updated == 0 {
             return Err(DaoError::OptimisticLockingFailed{ description: "update order 0 rows modified".to_string() });
@@ -120,7 +120,8 @@ impl<'b> DaoTransaction<'b> {
             ]
         ).await {
             Ok(_) => Ok(()),
-            Err(y) => { error!("save_order order_state_history {}: {}", y.to_string(), match y.as_db_error() {Some(x) => format!("{}", x),None => "none".parse().unwrap()}); return Err(DaoError::ExecuteFailed { description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("save_order order_state_history", db_error)); }
+
         }
     }
 
@@ -133,7 +134,8 @@ impl<'b> DaoTransaction<'b> {
         let res = match self.transaction.query(&query_string,
                                                &[&account_key]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_orders {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_orders", db_error)); }
+
         };
 
         let order_state_map = convert_rows_to_order_states(res);
@@ -148,8 +150,15 @@ impl<'b> DaoTransaction<'b> {
            &[&account_key,
                     &ext_order_id]).await {
             Ok(x) => x,
-           Err(y) => { error!("get_order {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
-        };
+           Err(db_error) => { return Err(gen_dao_error("get_order", db_error)); }
+       };
+        if res.len() > 1 {
+            if res.len() > 1 {
+                return Err(DaoError::QueryFailed {
+                    description: format!("get_order_by_ext_order_id got {} rows, expected 1", res.len()),
+                });
+            }
+        }
         let order_state_map = convert_rows_to_order_states(res);
         let order_state = match order_state_map.get(ext_order_id) {
             None => {None}
@@ -165,12 +174,17 @@ impl<'b> DaoTransaction<'b> {
         let res = match self.transaction.query(&query_string,
                                                &[&client_order_id]).await {
             Ok(x) => x,
-            Err(y) => { error!("get_order_by_client_order_id {}", y); return Err(DaoError::QueryFailed{ description: y.to_string() })},
+            Err(db_error) => { return Err(gen_dao_error("get_order_by_client_order_id", db_error)); }
         };
-        let order_state_map = convert_rows_to_order_states(res);
-        if order_state_map.len() > 1 {
-            todo!()
+        if res.len() > 1 {
+            if res.len() > 1 {
+                return Err(DaoError::QueryFailed {
+                    description: format!("get_order_by_client_order_id got {} rows, expected 1", res.len()),
+                });
+            }
         }
+        let order_state_map = convert_rows_to_order_states(res);
+
         let order_state = order_state_map.values().next();
         let order_state = match order_state {
             None => {None}

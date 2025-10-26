@@ -18,8 +18,14 @@ pub async fn get_positions(dao: ThinData<Dao>,
     if !access_control.is_allowed(account_key, customer_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     let positions = match txn.get_positions(account_key).await {
         Ok(x) => x,
         Err(y) => {
@@ -49,8 +55,14 @@ pub async fn get_balance(dao: ThinData<Dao>,
     if !access_control.is_allowed(account_key, customer_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     match txn.get_balance(account_key).await {
         Ok(balance) => {
             HttpResponse::Ok()
@@ -76,8 +88,14 @@ pub async fn get_account(dao: ThinData<Dao>,
     if !access_control.is_allowed(account_key, customer_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
-    let mut db_connection = dao.get_connection().await;
-    let txn = dao.begin(&mut db_connection).await;
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(_) => todo!(),
+    };
     match txn.get_account_by_account_key(account_key).await {
         Ok(account) => {
             HttpResponse::Ok()
