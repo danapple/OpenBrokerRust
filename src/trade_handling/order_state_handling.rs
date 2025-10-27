@@ -16,12 +16,18 @@ pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &
 async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, order_state: OrderState) {
     let _lock = mutex.lock().await;
     let mut db_connection = match dao.get_connection().await {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(db_connection) => db_connection,
+        Err(dao_error) => {
+            error!("Could not get connection: {}", dao_error.to_string());
+            return;
+        },
     };
     let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(txn) => txn,
+        Err(dao_error) => {
+            error!("Could not begin: {}", dao_error.to_string());
+            return;
+        },
     };
 
     match txn.get_order_by_client_order_id(&order_state.order.client_order_id).await {

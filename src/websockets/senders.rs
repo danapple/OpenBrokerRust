@@ -58,7 +58,10 @@ pub async fn send_orders(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate
     };
     match txn.rollback().await {
         Ok(x) => x,
-        Err(_) => todo!(),
+        Err(y) => {
+            error!("send_orders error rolling back: {}", y);
+            return;
+        },
     };
 
     for order_state in order_states.values() {

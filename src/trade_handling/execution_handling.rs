@@ -20,12 +20,18 @@ pub fn handle_execution(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &We
 async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, instrument_manager: InstrumentManager, execution: Execution) {
     let _lock = mutex.lock().await;
     let mut db_connection = match dao.get_connection().await {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(db_connection) => db_connection,
+        Err(dao_error) => {
+            error!("Could not get connection: {}", dao_error.to_string());
+            return;
+        },
     };
     let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(txn) => txn,
+        Err(dao_error) => {
+            error!("Could not begin: {}", dao_error.to_string());
+            return;
+        },
     };
     let db_order_state_option = match txn.get_order_by_client_order_id(&execution.client_order_id).await {
         Err(err) => {
