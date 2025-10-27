@@ -12,7 +12,7 @@ pub struct ExchangeClient {
     exchange_url: String,
 }
 
-fn get_customer_key_cookie(customer_key: &String) -> String {
+pub(crate) fn get_customer_key_cookie(customer_key: &String) -> String {
     ["customerKey", &customer_key].join("=")
 }
 
