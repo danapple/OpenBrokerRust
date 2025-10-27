@@ -76,7 +76,10 @@ fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &Web
 
     let wrapper: ExecutionsTopicWrapper = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
-        Err(y) => todo!("{}", y),
+        Err(y) => {
+            error!("Failed while parsing executions message: {}", y);
+            return;
+        },
     };
     match wrapper.order_state {
         None => {}
@@ -87,7 +90,7 @@ fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &Web
     match wrapper.execution {
         None => {}
         Some(execution) => {
-            (execution_handler)(mutex, dao, web_socket_server, instrument_manager, execution);
+            execution_handler(mutex, dao, web_socket_server, instrument_manager, execution);
         }
     }
 
@@ -97,16 +100,22 @@ fn depth_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocke
     debug!("depth_receiver {} : {}", stomp_message.destination, stomp_message.body);
     let depth: MarketDepth = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
-        Err(y) => todo!("{}", y),
+        Err(y) => {
+            error!("Failed while parsing depth message: {}", y);
+            return;
+        },
     };
-    (depth_handler)(dao, web_socket_server, depth);
+    depth_handler(dao, web_socket_server, depth);
 }
 
 fn last_trade_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, last_trade_handler: fn(&Dao, &WebSocketServer, LastTrade), stomp_message: &MessageContent) {
     debug!("trades_receiver {} : {}", stomp_message.destination, stomp_message.body);
     let last_trade: LastTrade = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
-        Err(y) => todo!("{}", y),
+        Err(y) => {
+            error!("Failed while parsing last_trade message: {}", y);
+            return;
+        },
     };
-    (last_trade_handler)(dao, web_socket_server, last_trade);
+    last_trade_handler(dao, web_socket_server, last_trade);
 }
