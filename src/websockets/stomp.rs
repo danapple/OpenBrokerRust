@@ -1,5 +1,6 @@
 use crate::constants::APPLICATION_JSON;
 use actix_web::Scope;
+use anyhow::anyhow;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -131,15 +132,28 @@ pub fn parse_message(message: &String) -> Result<StompMessage, anyhow::Error> {
             }
         }
     }
-    let message_type = vals.get(MESSAGE_TYPE).unwrap();
+    let message_type = match vals.get(MESSAGE_TYPE) {
+        Some(message_type) => message_type,
+        None => return Err(anyhow!("Missing message type")),
+    };
     let ret = match message_type.as_str() {
         MESSAGE => {
+            let content_length = match vals[CONTENT_LENGTH].parse::<u16>() {
+                Ok(content_length) => content_length,
+                Err(parse_error) =>
+                    return Err(anyhow!("Could not parse content length {}: {}", vals[CONTENT_LENGTH], parse_error.to_string())),
+            };
+            let subscription = match vals[SUBSCRIPTION].parse::<u16>() {
+                Ok(subscription) => subscription,
+                Err(parse_error) =>
+                    return Err(anyhow!("Could not parse subscription {}: {}", vals[SUBSCRIPTION], parse_error.to_string())),
+            };
             StompMessage::Message(MessageContent {
                 destination: vals[DESTINATION].to_string(),
                 body: vals[BODY].to_string(),
                 content_type: vals[CONTENT_TYPE].to_string(),
-                content_length: vals[CONTENT_LENGTH].parse::<u16>().unwrap(),
-                subscription: vals[SUBSCRIPTION].parse::<u16>().unwrap(),
+                content_length,
+                subscription,
                 message_id: vals[MESSAGE_ID].to_string(),
             })
         },
