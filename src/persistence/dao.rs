@@ -45,7 +45,7 @@ impl Error for DaoError {
 pub fn gen_dao_error(method: &str, y: tokio_postgres::Error) -> DaoError {
     error!("{} {}: {}", method, y.to_string(), match y.as_db_error() {
                 Some(x) => format!("{}", x),
-                None => "none".parse().unwrap()});
+                None => "none".to_string()});
     DaoError::ExecuteFailed {
         description: y.to_string()
     }
