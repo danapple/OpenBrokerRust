@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate actix_web;
+
 use actix_files as fs;
 
 use crate::config::BrokerConfig;
@@ -64,22 +65,26 @@ async fn main() -> io::Result<()> {
     let config = match BrokerConfig::builder()
         .override_with(EnvSource::new())
         .try_build() {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(config) => config,
+        Err(build_error) => panic!("Could not create BrokerConfig: {}", build_error),
     };
 
     env_logger::init_from_env(Env::default().default_filter_or(config.log_level.clone()));
 
     let pool = match config.pg.create_pool(None, NoTls) {
-        Ok(x) => x,
-        Err(_) => todo!(),
+        Ok(pool) => pool,
+        Err(pool_error) => panic!("Could not create database connection pool: {}", pool_error),
     };
     let dao = dao::Dao::new(pool);
 
     info!("About to add instruments");
     // TODO loop in another thread until instruments are retrieved
     let base_exchange_client = Arc::new(ExchangeClient::new(&config));
-    let base_instruments = base_exchange_client.clone().get_instruments().await;
+    let base_instruments = match base_exchange_client.clone().get_instruments().await {
+        Ok(base_instruments) => base_instruments,
+        Err(instrument_error) => todo!("Should retry getting instruments from the exchange: {}", instrument_error),
+    };
+
     let mut instrument_manager = InstrumentManager::new();
 
     for instrument in base_instruments.instruments.values() {

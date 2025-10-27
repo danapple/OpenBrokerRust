@@ -200,10 +200,16 @@ pub async fn submit_order(dao: ThinData<Dao>,
     };
     send_order_state(&mut web_socket_server, &account_key, &order_state);
 
-    let response = instrument.exchange_client.submit_order(exchange_order).await;
+    let exchange_order_state = match instrument.exchange_client.submit_order(exchange_order).await {
+        Ok(exchange_order_state) => exchange_order_state,
+        Err(submit_order_error) => {
+            error!("submit_order_error: {}", submit_order_error);
+            return HttpResponse::InternalServerError().finish()
+        },
+    };
 
     // We'll get async notifications for all status updates other than Rejected
-    if response.order_status == exchange_interface::trading::OrderStatus::Rejected {
+    if exchange_order_state.order_status == exchange_interface::trading::OrderStatus::Rejected {
         order_state.order_status = OrderStatus::Rejected;
         order_state.update_time = current_time_millis();
 
@@ -279,9 +285,16 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Some(x) => x,
         None => todo!(),
     }.instrument_id);
-    let response = instrument.exchange_client.cancel_order(order_state.clone().order.client_order_id).await;
 
-    order_state.order_status = order_status_to_rest_api_order_status(response.order_status);
+    let exchange_order_state = match instrument.exchange_client.cancel_order(order_state.clone().order.client_order_id).await {
+        Ok(exchange_order_state) => exchange_order_state,
+        Err(cancel_order_error) => {
+            error!("cancel_order_error: {}", cancel_order_error);
+            return HttpResponse::InternalServerError().finish()
+        },
+    };
+
+    order_state.order_status = order_status_to_rest_api_order_status(exchange_order_state.order_status);
     order_state.update_time = current_time_millis();
 
     let txn = match dao.begin(&mut db_connection).await {
