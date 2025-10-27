@@ -106,7 +106,7 @@ const ACK: &'static str = "ack";
 const MESSAGE_TYPE: &'static str = "message-type";
 const BODY: &'static str = "body";
 
-pub fn parse_message(message: &String) -> StompMessage {
+pub fn parse_message(message: &String) -> Result<StompMessage, anyhow::Error> {
     let mut vals: HashMap<&str, String> = HashMap::new();
     let mut body_now = false;
     for line in message.lines() {
@@ -183,7 +183,8 @@ pub fn parse_message(message: &String) -> StompMessage {
         }
         _ => {
             error!("Unknown message type {}", message_type);
-            todo!()}
+            return Err(anyhow::anyhow!("Unknown message type {}", message_type));
+        }
     };
-    ret
+    Ok(ret)
 }

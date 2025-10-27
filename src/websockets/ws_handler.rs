@@ -1,4 +1,5 @@
 use crate::access_control::{AccessControl, Privilege};
+use crate::config::BrokerConfig;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
@@ -9,6 +10,7 @@ use crate::websockets::stomp::{parse_message, SendContent, SubscribeContent};
 use actix_web::web::ThinData;
 use actix_web::{error, web, HttpRequest, HttpResponse};
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, Closed, Session};
+use anyhow::{anyhow, Error};
 use bimap::BiHashMap;
 use futures_util::StreamExt;
 use log::trace;
@@ -295,9 +297,14 @@ impl WsHandler {
     }
 
     async fn parse_text_message(&mut self, session: &mut Session, conn_tx: &UnboundedSender<QueueItem>,
-                                text: &String) -> Result<(), Closed> {
+                                text: &String) -> Result<(), Error> {
         debug!("Text message {}", text);
-        match parse_message(&text.to_string()) {
+        let parsed_message_result = parse_message(&text.to_string());
+        let parsed_message = match parsed_message_result {
+            Ok(parsed_message) => parsed_message,
+            Err(parse_error) => return Err(anyhow::anyhow!("Unable to parse message: {}", parse_error.to_string()))
+        };
+        let res = match parsed_message {
             StompMessage::Message(msg) => {
                 error!("Received unexpected Message message on server: {}", msg.body);
                 Ok(())
@@ -305,7 +312,6 @@ impl WsHandler {
             StompMessage::Send(msg) => {
                 info!("Received expected Send message on server: {} {}", msg.destination, msg.body );
                 self.send_content(conn_tx.clone(), msg).await
-
             }
             StompMessage::Connected(ct) => {
                 error!("Received unexpected Connected message on server: {}", ct.user_name);
@@ -328,6 +334,12 @@ impl WsHandler {
                 info!("Received expected Disconnect message on server");
                 self.unsubscribe_all(&conn_tx);
                 Ok(())
+            }
+        };
+        match res {
+            Ok(_) => Ok(()),
+            Err(closed_error) => {
+                Err(anyhow::Error::from(closed_error))
             }
         }
     }
