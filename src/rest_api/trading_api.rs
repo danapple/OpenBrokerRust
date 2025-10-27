@@ -205,10 +205,8 @@ pub async fn submit_order(dao: ThinData<Dao>,
     };
 
     let ext_order_id = rest_api_order.ext_order_id.clone().unwrap_or_else(|| Uuid::new_v4().simple().to_string());
-
-
-    rest_api_order.account_key = Some(account_key.clone());
     rest_api_order.ext_order_id = Some(ext_order_id);
+    rest_api_order.account_key = Some(account_key.clone());
 
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
