@@ -226,11 +226,13 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let exchange_order_result = rest_api_order.to_exchange_order(instrument_manager);
     let exchange_order = match exchange_order_result {
         Ok(exchange_order) => exchange_order,
-        Err(err) => {
-            return log_text_error_and_return_500(err.to_string());
-        }
+        Err(err) => return log_text_error_and_return_500(err.to_string())
     };
-    let entities_order = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone());
+    let entities_order_result = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone());
+    let entities_order = match entities_order_result {
+        Ok(entities_order) => entities_order,
+        Err(err) => return log_text_error_and_return_500(err.to_string())
+    };
     let mut order_state = entities::trading::OrderState {
         update_time: current_time_millis(),
         order_status: OrderStatus::Pending,

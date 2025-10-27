@@ -87,7 +87,7 @@ impl Order {
         Ok(order_exchange)
     }
 
-    pub fn to_entities_order(&self, account: &Account, client_order_id: String) -> entities::trading::Order {
+    pub fn to_entities_order(&self, account: &Account, client_order_id: String) -> Result<entities::trading::Order, anyhow::Error> {
         let mut order_legs: Vec<entities::trading::OrderLeg> = Vec::new();
 
         for leg in self.legs.iter() {
@@ -101,15 +101,17 @@ impl Order {
         let order_entity = entities::trading::Order {
             order_id: 0,
             account_id: account.account_id,
-            order_number: self.order_number.unwrap_or(0),
-            ext_order_id: self.ext_order_id.clone().unwrap(),
+            order_number: 0,
+            ext_order_id: match self.ext_order_id.clone() {
+                Some(ext_order_id) => ext_order_id,
+                None => return Err(anyhow::anyhow!("No external order id for account: {}", account.account_id))
+            },
             client_order_id,
             create_time: current_time_millis(),
             price: self.price,
             quantity: self.quantity,
             legs: order_legs,
         };
-
-        order_entity
+        Ok(order_entity)
     }
 }
