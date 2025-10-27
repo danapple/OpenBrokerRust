@@ -20,7 +20,7 @@ def on_open(ws):
             ""
             "\n")
 
-    sub = stomper.subscribe("/accounts/" + accountKey + "/order_updates", 1, ack='auto')
+    sub = stomper.subscribe("/accounts/" + accountKey + "/updates", 1, ack='auto')
     ws.send(sub)
 
 
