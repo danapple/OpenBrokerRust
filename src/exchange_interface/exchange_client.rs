@@ -19,13 +19,13 @@ pub(crate) fn get_customer_key_cookie(customer_key: &String) -> String {
 impl ExchangeClient {
     pub fn new (config: &BrokerConfig) -> Self {
         let jar = Arc::new(Jar::default());
-        let url_string = match config.exchange_url.parse::<Url>() {
+        let url = match config.exchange_url.parse::<Url>() {
             Ok(url_string) => url_string,
             Err(parse_error) => {
                 panic!("ExchangeClient::new url_string parse error {}", parse_error);
             }
         };
-        jar.add_cookie_str(&get_customer_key_cookie(&config.broker_key), &url_string);
+        jar.add_cookie_str(&get_customer_key_cookie(&config.broker_key), &url);
 
         let client = match Client::builder().cookie_provider(Arc::clone(&jar)).build() {
             Ok(client) => client,
