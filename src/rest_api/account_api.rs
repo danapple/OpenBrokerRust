@@ -16,7 +16,14 @@ pub async fn get_positions(dao: ThinData<Dao>,
     let account_key = &account_key.0.as_str().to_string();
     let api_key = base_api::get_api_key(req);
 
-    if !access_control.is_allowed(account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -53,7 +60,14 @@ pub async fn get_balance(dao: ThinData<Dao>,
                          req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
     let api_key = base_api::get_api_key(req);
-    if !access_control.is_allowed(account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -86,7 +100,14 @@ pub async fn get_account(dao: ThinData<Dao>,
                          req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
     let api_key = base_api::get_api_key(req);
-    if !access_control.is_allowed(account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {

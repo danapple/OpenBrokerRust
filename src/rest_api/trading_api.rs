@@ -5,6 +5,7 @@ use std::string::ToString;
 use crate::constants::{ACCOUNT_UPDATE_QUEUE_NAME, APPLICATION_JSON};
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::{web, HttpRequest, HttpResponse};
+use anyhow::Error;
 use log::{error, info};
 use uuid::Uuid;
 
@@ -29,7 +30,14 @@ pub async fn get_orders(dao: ThinData<Dao>,
     let account_key = path.into_inner();
 
     let api_key = base_api::get_api_key(req);
-    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -66,7 +74,14 @@ pub async fn get_order(dao: ThinData<Dao>,
     let (account_key, ext_order_id) = path.into_inner();
     let api_key = base_api::get_api_key(req);
     info!("get_order called for ext_order_id {ext_order_id}");
-    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -105,7 +120,14 @@ pub async fn preview_order(dao: ThinData<Dao>,
                            rest_api_order: Json<Order>) -> HttpResponse {
     let account_key = path.into_inner();
     let api_key = base_api::get_api_key(req);
-    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
 
@@ -135,7 +157,14 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let account_key = path.into_inner();
 
     let api_key = base_api::get_api_key(req);
-    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
 
@@ -244,7 +273,14 @@ pub async fn cancel_order(dao: ThinData<Dao>,
 
     let api_key = base_api::get_api_key(req);
     info!("cancel_order called for ext_order_id {ext_order_id}");
-    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+        Ok(allowed) => allowed,
+        Err(error) => {
+            error!("Failed while checking access: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {

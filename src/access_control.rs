@@ -1,4 +1,5 @@
 use crate::persistence::dao::Dao;
+use anyhow::Error;
 use postgres_types::{FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -28,24 +29,24 @@ impl AccessControl {
             dao
         }
     }
-    pub async fn is_allowed(& self, account_key: &str, api_key: Option<String>, privilege: Privilege) -> bool {
+    pub async fn is_allowed(& self, account_key: &str, api_key: Option<String>, privilege: Privilege) -> Result<bool, Error> {
         match api_key {
             Some(key) => {
                 let mut db_connection = match self.dao.get_connection().await {
-                    Ok(x) => x,
-                    Err(_) => todo!(),
+                    Ok(db_connection) => db_connection,
+                    Err(dao_error) => return Err(anyhow::anyhow!("Could not get connection: {}", dao_error.to_string()))
                 };
                 let txn = match self.dao.begin(&mut db_connection).await {
-                    Ok(x) => x,
-                    Err(_) => todo!(),
+                    Ok(txn) => txn,
+                    Err(dao_error) => return Err(anyhow::anyhow!("Could not begin transaction: {}", dao_error.to_string()))
                 };
                 match txn.is_allowed(account_key, key.as_str(), privilege).await {
-                    Ok(x) => x,
-                    Err(_) => todo!(),
+                    Ok(allowed) => Ok(allowed),
+                    Err(dao_error) => Err(anyhow::anyhow!("Could not check is_allowed: {}", dao_error.to_string()))
                 }
             }
             None => {
-                false
+                Ok(false)
             }
         }
     }

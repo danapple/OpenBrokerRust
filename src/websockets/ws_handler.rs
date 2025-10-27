@@ -208,7 +208,14 @@ impl WsHandler {
                 return false;
             }
         };
-        self.access_control.is_allowed(&account_key, Some(self.api_key.to_string()), Privilege::Read).await
+        let allowed: bool = match self.access_control.is_allowed(&account_key, Some(self.api_key.to_string()), Privilege::Read).await {
+            Ok(allowed) => allowed,
+            Err(error) => {
+                error!("Failed while checking access: {}", error.to_string());
+                return false;
+            }
+        };
+        allowed
     }
 
 
