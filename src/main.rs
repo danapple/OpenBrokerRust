@@ -30,7 +30,7 @@ use crate::exchange_interface::websocket_client::ExchangeWebsocketClient;
 use crate::market_data::receiver::{handle_depth, handle_last_trade};
 use crate::persistence::dao;
 use crate::vetting::all_pass_vetter::AllPassVetter;
-use crate::websockets::server;
+use crate::websockets::{server, ws_handler};
 use instrument_manager::InstrumentManager;
 use rest_api::account_api;
 use rest_api::trading_api;
@@ -45,7 +45,6 @@ mod vetting;
 mod websockets;
 mod trade_handling;
 mod market_data;
-mod errors;
 
 fn add_error_header<B>(mut res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
 
@@ -124,7 +123,7 @@ async fn main() -> io::Result<()> {
             .service(account_api::get_positions)
             .service(account_api::get_balance)
             .service(account_api::get_account)
-            .service(web::resource("/ws").route(web::get().to(server::ws_setup)))
+            .service(web::resource("/ws").route(web::get().to(ws_handler::ws_setup)))
             .service(fs::Files::new("/", "./resources/static")
                          .show_files_listing()
                          .index_file("index.html")
