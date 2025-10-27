@@ -19,11 +19,24 @@ pub async fn send_positions(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<cr
             trade: None,
             order_state: None,
         };
+        let body = match serde_json::to_string(&account_update) {
+            Ok(body) => body,
+            Err(json_error) => {
+                error!("send_positions error while serializing: {}", json_error);
+                return;
+            },
+        };
         let queue_item = crate::websockets::server::QueueItem {
             destination: destination.clone(),
-            body: serde_json::to_string(&account_update).unwrap(),
+            body,
         };
-        conn_tx.send(queue_item.clone()).unwrap();
+        match conn_tx.send(queue_item.clone()) {
+            Ok(_) => {},
+            Err(y) => {
+                error!("send_positions error while sending: {}", y);
+                return;
+            },
+        };
     }
 }
 
@@ -41,11 +54,24 @@ pub async fn send_balance(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crat
         trade: None,
         order_state: None,
     };
+    let body = match serde_json::to_string(&account_update) {
+        Ok(body) => body,
+        Err(json_error) => {
+            error!("send_balance error while serializing: {}", json_error);
+            return;
+        },
+    };
     let queue_item = crate::websockets::server::QueueItem {
         destination: destination.clone(),
-        body: serde_json::to_string(&account_update).unwrap(),
+        body,
     };
-    conn_tx.send(queue_item.clone()).unwrap();
+    match conn_tx.send(queue_item.clone()) {
+        Ok(_) => {},
+        Err(y) => {
+            error!("send_balance error while sending: {}", y);
+            return;
+        },
+    };
 }
 
 pub async fn send_orders(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
@@ -71,10 +97,23 @@ pub async fn send_orders(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate
             trade: None,
             order_state: Some(order_state.to_rest_api_order_state(account_key)),
         };
+        let body = match serde_json::to_string(&account_update) {
+            Ok(body) => body,
+            Err(json_error) => {
+                error!("send_orders error while serializing: {}", json_error);
+                return;
+            },
+        };
         let queue_item = crate::websockets::server::QueueItem {
             destination: destination.clone(),
-            body: serde_json::to_string(&account_update).unwrap(),
+            body
         };
-        conn_tx.send(queue_item.clone()).unwrap();
+        match conn_tx.send(queue_item.clone()) {
+            Ok(_) => {},
+            Err(y) => {
+                error!("send_orders error while sending: {}", y);
+                return;
+            },
+        };
     }
 }
