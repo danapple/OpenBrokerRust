@@ -7,7 +7,7 @@ import requests
 
 def main(argv):
 
-    customer_key=''
+    api_key=''
     price=''
     quantity=''
     instrumentId=''
@@ -37,7 +37,7 @@ def main(argv):
                            
                          
 
-    cookies = { "customer_key": customer_key }
+    cookies = { "api_key": api_key }
 
     #path="http://openexchange.eu-central-1.elasticbeanstalk.com/order/" + client_order_id
     path="http://localhost:8080/accounts/" + accountKey + "/orders"

@@ -6,8 +6,8 @@ use actix_web::web::ThinData;
 use actix_web::{HttpRequest, HttpResponse};
 use log::error;
 
-pub fn get_customer_key(req: HttpRequest,) -> Option<String> {
-    match req.cookie("customer_key") {
+pub fn get_api_key(req: HttpRequest,) -> Option<String> {
+    match req.cookie("api_key") {
         Some(cookie) => {
             Some(cookie.value().to_string())
         }

@@ -27,19 +27,19 @@ def on_open(ws):
 def main(argv):
     global accountKey
     try:
-        opts, args = getopt.getopt(argv, "", ["customerKey=","accountKey="])
+        opts, args = getopt.getopt(argv, "", ["apiKey=","accountKey="])
     except getopt.GetoptError:
         print ('oops')
         sys.exit(2)
     for opt, arg in opts:
-        if opt == '--customerKey':
-            customerKey=arg
+        if opt == '--apiKey':
+            apiKey=arg
         if opt == '--accountKey':
             accountKey=arg
 
     websocket.enableTrace(True)
 
-    ws_app = websocket.WebSocketApp("ws://192.168.111.107:8080/ws", cookie = 'customer_key=' + customerKey, on_open=on_open, on_message=on_message)
+    ws_app = websocket.WebSocketApp("ws://192.168.111.107:8080/ws", cookie = 'api_key=' + apiKey, on_open=on_open, on_message=on_message)
 
     ws_app.run_forever(reconnect=1)
 

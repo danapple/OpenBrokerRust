@@ -28,8 +28,8 @@ pub async fn get_orders(dao: ThinData<Dao>,
     info!("get_orders called");
     let account_key = path.into_inner();
 
-    let customer_key = base_api::get_customer_key(req);
-    if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
+    let api_key = base_api::get_api_key(req);
+    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -64,9 +64,9 @@ pub async fn get_order(dao: ThinData<Dao>,
                        path: Path<(String, String)>,
                        req: HttpRequest,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
-    let customer_key = base_api::get_customer_key(req);
+    let api_key = base_api::get_api_key(req);
     info!("get_order called for ext_order_id {ext_order_id}");
-    if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
+    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -104,8 +104,8 @@ pub async fn preview_order(dao: ThinData<Dao>,
                            req: HttpRequest,
                            rest_api_order: Json<Order>) -> HttpResponse {
     let account_key = path.into_inner();
-    let customer_key = base_api::get_customer_key(req);
-    if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
+    let api_key = base_api::get_api_key(req);
+    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
 
@@ -134,8 +134,8 @@ pub async fn submit_order(dao: ThinData<Dao>,
     info!("submit_order called");
     let account_key = path.into_inner();
 
-    let customer_key = base_api::get_customer_key(req);
-    if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
+    let api_key = base_api::get_api_key(req);
+    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
 
@@ -242,9 +242,9 @@ pub async fn cancel_order(dao: ThinData<Dao>,
                           req: HttpRequest,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
 
-    let customer_key = base_api::get_customer_key(req);
+    let api_key = base_api::get_api_key(req);
     info!("cancel_order called for ext_order_id {ext_order_id}");
-    if !access_control.is_allowed(&account_key, customer_key, Privilege::Read).await {
+    if !access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {

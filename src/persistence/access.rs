@@ -4,12 +4,12 @@ use log::trace;
 use log::{error, info};
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn is_allowed(&self, account_key: &str, customer_key: &str, privilege: Privilege) -> Result<bool, DaoError> {
+    pub async fn is_allowed(&self, account_key: &str, api_key: &str, privilege: Privilege) -> Result<bool, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ACCESS_QUERY);
         let res = match self.transaction.query(&query_string,
                                                &[
-                                                   &customer_key,
+                                                   &api_key,
                                                    &account_key,
                                                    &privilege.to_string()]).await {
             Ok(x) => x,

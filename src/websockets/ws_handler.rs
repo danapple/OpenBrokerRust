@@ -36,26 +36,26 @@ pub async fn ws_setup(
 
     let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
 
-    let customer_key = base_api::get_customer_key(req);
-    let customer_key = match customer_key {
-        Some(customer_key) => customer_key,
+    let api_key = base_api::get_api_key(req);
+    let api_key = match api_key {
+        Some(api_key) => api_key,
         None => {
-            error!("No customer key available");
-            return Err(error::ErrorBadRequest("No customer key available".to_string()));
+            error!("No api key available");
+            return Err(error::ErrorBadRequest("No api key available".to_string()));
         }
     }.to_string();
-    if customer_key.is_empty() {
-        return Err(error::ErrorBadRequest("customerKey is empty"));
+    if api_key.is_empty() {
+        return Err(error::ErrorBadRequest("apiKey is empty"));
     }
 
-    info!("Websocket connection established for {}", customer_key);
+    info!("Websocket connection established for {}", api_key);
     spawn_local(ws_handler(
         dao,
         session,
         web_socket_server,
         access_control,
         msg_stream,
-        customer_key
+        api_key
     ));
 
     Ok(res)
@@ -67,9 +67,9 @@ async fn ws_handler(
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     msg_stream: actix_ws::MessageStream,
-    customer_key: String,
+    api_key: String,
 ) {
-    let mut ws_handler_obj = WsHandler::new(dao, web_socket_server, access_control, msg_stream, customer_key);
+    let mut ws_handler_obj = WsHandler::new(dao, web_socket_server, access_control, msg_stream, api_key);
     ws_handler_obj.start(&mut session).await;
     info!("Websocket closing");
     match session.close(None).await {
@@ -86,7 +86,7 @@ struct WsHandler {
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     msg_stream: AggregatedMessageStream,
-    customer_key: String,
+    api_key: String,
     subscriptions: BiHashMap<String, String>
 }
 
@@ -95,7 +95,7 @@ impl WsHandler {
            web_socket_server: ThinData<WebSocketServer>,
            access_control: ThinData<AccessControl>,
            in_msg_stream: actix_ws::MessageStream,
-           customer_key: String) -> WsHandler {
+           api_key: String) -> WsHandler {
         WsHandler {
             dao,
             web_socket_server,
@@ -104,13 +104,13 @@ impl WsHandler {
                 .max_frame_size(128 * 1024)
                 .aggregate_continuations()
                 .max_continuation_size(2 * 1024 * 1024),
-            customer_key,
+            api_key,
             subscriptions: BiHashMap::new()
         }
     }
 
     async fn start(&mut self, session: &mut Session) {
-        info!("Websocket connected for {}", self.customer_key);
+        info!("Websocket connected for {}", self.api_key);
         let mut last_heartbeat = Instant::now();
         let mut interval = interval(HEARTBEAT_INTERVAL);
 
@@ -206,7 +206,7 @@ impl WsHandler {
                 return false;
             }
         };
-        self.access_control.is_allowed(&account_key, Some(self.customer_key.to_string()), Privilege::Read).await
+        self.access_control.is_allowed(&account_key, Some(self.api_key.to_string()), Privilege::Read).await
     }
 
 

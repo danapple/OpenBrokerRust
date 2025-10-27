@@ -1,10 +1,8 @@
 use log::trace;
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::{Arc, RwLock};
 
 use crate::config::BrokerConfig;
-use crate::exchange_interface::exchange_client;
 use crate::exchange_interface::exchange_client::get_customer_key_cookie;
 use crate::websockets::stomp;
 pub(crate) use crate::websockets::stomp::StompMessage;
@@ -64,12 +62,12 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
             return Err(anyhow::anyhow!("Could not create client request: {}", request_error.to_string())),
     };
 
-    let customer_key_cookie = match get_customer_key_cookie(&broker_key).parse() {
-        Ok(customer_key_cookie) => customer_key_cookie,
+    let api_key_cookie = match get_customer_key_cookie(&broker_key).parse() {
+        Ok(api_key_cookie) => api_key_cookie,
         Err(parse_error) =>
-            return Err(anyhow::anyhow!("Could parse customer key cookie: {}", parse_error)),
+            return Err(anyhow::anyhow!("Could parse api key cookie: {}", parse_error)),
     };
-    request.headers_mut().insert("Cookie", customer_key_cookie);
+    request.headers_mut().insert("Cookie", api_key_cookie);
 
     let (mut ws_stream, _) = connect_async(request).await.expect("Failed to connect");
     println!("WebSocket client connected");

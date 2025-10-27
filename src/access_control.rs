@@ -28,8 +28,8 @@ impl AccessControl {
             dao
         }
     }
-    pub async fn is_allowed(& self, account_key: &str, customer_key: Option<String>, privilege: Privilege) -> bool {
-        match customer_key {
+    pub async fn is_allowed(& self, account_key: &str, api_key: Option<String>, privilege: Privilege) -> bool {
+        match api_key {
             Some(key) => {
                 let mut db_connection = match self.dao.get_connection().await {
                     Ok(x) => x,

@@ -14,9 +14,9 @@ pub async fn get_positions(dao: ThinData<Dao>,
                            account_key: Path<(String,)>,
                            req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
-    let customer_key = base_api::get_customer_key(req);
+    let api_key = base_api::get_api_key(req);
 
-    if !access_control.is_allowed(account_key, customer_key, Privilege::Read).await {
+    if !access_control.is_allowed(account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -52,8 +52,8 @@ pub async fn get_balance(dao: ThinData<Dao>,
                          account_key: Path<(String,)>,
                          req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
-    let customer_key = base_api::get_customer_key(req);
-    if !access_control.is_allowed(account_key, customer_key, Privilege::Read).await {
+    let api_key = base_api::get_api_key(req);
+    if !access_control.is_allowed(account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {
@@ -85,8 +85,8 @@ pub async fn get_account(dao: ThinData<Dao>,
                          account_key: Path<(String,)>,
                          req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
-    let customer_key = base_api::get_customer_key(req);
-    if !access_control.is_allowed(account_key, customer_key, Privilege::Read).await {
+    let api_key = base_api::get_api_key(req);
+    if !access_control.is_allowed(account_key, api_key, Privilege::Read).await {
         return HttpResponse::Forbidden().finish();
     }
     let mut db_connection = match dao.get_connection().await {

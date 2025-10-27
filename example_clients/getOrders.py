@@ -7,7 +7,7 @@ import requests
 
 
 def main(argv):
-    customer_key=''
+    api_key=''
 
     try:
        opts, args = getopt.getopt(argv, "", ["accountKey="])
