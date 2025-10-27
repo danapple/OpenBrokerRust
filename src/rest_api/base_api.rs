@@ -29,6 +29,11 @@ pub fn send_order_state(web_socket_server: &mut ThinData<WebSocketServer>, accou
 
 
 pub fn log_dao_error_and_return_500(dao_error: DaoError) -> HttpResponse {
-    error!("{}", dao_error);
+    error!("DaoError: {}", dao_error);
+    HttpResponse::InternalServerError().finish()
+}
+
+pub fn log_text_error_and_return_500(error: String) -> HttpResponse {
+    error!("Error: {}", error);
     HttpResponse::InternalServerError().finish()
 }

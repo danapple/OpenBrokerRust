@@ -9,10 +9,11 @@ use anyhow::Error;
 use log::{error, info};
 use uuid::Uuid;
 
-use crate::instrument_manager::InstrumentManager;
+use crate::entities::trading::OrderLeg;
+use crate::instrument_manager::{Instrument, InstrumentManager};
 use crate::persistence::dao::{Dao, DaoError};
 use crate::rest_api::base_api;
-use crate::rest_api::base_api::{log_dao_error_and_return_500, send_order_state};
+use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500, send_order_state};
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::time::current_time_millis;
@@ -171,7 +172,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let vetting_result = match vetter.vet_order(&rest_api_order).await {
         Ok(x) => x,
         Err(vetting_error) => {
-            error!("{}", vetting_error);
+            error!("Vetting error: {}", vetting_error);
             return HttpResponse::InternalServerError().finish()
         },
     };
@@ -182,9 +183,29 @@ pub async fn submit_order(dao: ThinData<Dao>,
         return HttpResponse::PreconditionFailed().json(rest_api_vetting_result);
     }
 
-    let instrument = instrument_manager.get_instrument(0);
+    let first_leg_instrument_id = match rest_api_order.legs.first() {
+        Some(leg0) => leg0.instrument_id,
+        None => return HttpResponse::PreconditionFailed().json("no order legs")
+    };
+
+    let instrument_result = instrument_manager.get_instrument(first_leg_instrument_id);
+    let instrument_option = match instrument_result {
+        Ok(instrument_option) => instrument_option,
+        Err(instrument_error) => {
+            error!("Could not get instrument: {}", instrument_error);
+            return HttpResponse::PreconditionFailed().finish()
+        }
+
+    };
+    let instrument = match instrument_option {
+        Some(instrument) => instrument,
+        None => {
+            return HttpResponse::PreconditionFailed().json("instrument 0 is unknown")
+        }
+    };
+
     let ext_order_id = rest_api_order.ext_order_id.clone().unwrap_or_else(|| Uuid::new_v4().simple().to_string());
-    let exchange_order = rest_api_order.to_exchange_order(instrument_manager);
+
 
     rest_api_order.account_key = Some(account_key.clone());
     rest_api_order.ext_order_id = Some(ext_order_id);
@@ -201,6 +222,13 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let account = match txn.get_account_by_account_key(&account_key.clone()).await {
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
+    };
+    let exchange_order_result = rest_api_order.to_exchange_order(instrument_manager);
+    let exchange_order = match exchange_order_result {
+        Ok(exchange_order) => exchange_order,
+        Err(err) => {
+            return log_text_error_and_return_500(err.to_string());
+        }
     };
     let entities_order = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone());
     let mut order_state = entities::trading::OrderState {
@@ -317,10 +345,25 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     };
     send_order_state(&mut web_socket_server, &account_key, &order_state);
 
-    let instrument = instrument_manager.get_instrument(match order_state.order.legs.first() {
-        Some(x) => x,
-        None => todo!(),
-    }.instrument_id);
+    let first_leg_instrument_id = match order_state.order.legs.first() {
+        Some(leg0) => leg0.instrument_id,
+        None => return HttpResponse::PreconditionFailed().json("no order legs")
+    };
+
+    let instrument_result = instrument_manager.get_instrument(first_leg_instrument_id);
+    let instrument_option = match instrument_result {
+        Ok(instrument_option) => instrument_option,
+        Err(instrument_error) => {
+            error!("Could not get instrument: {}", instrument_error);
+            return HttpResponse::PreconditionFailed().finish()
+        }
+    };
+    let instrument = match instrument_option {
+        Some(instrument) => instrument,
+        None => {
+            return HttpResponse::PreconditionFailed().json("instrument 0 is unknown")
+        }
+    };
 
     let exchange_order_state = match instrument.exchange_client.cancel_order(order_state.clone().order.client_order_id).await {
         Ok(exchange_order_state) => exchange_order_state,

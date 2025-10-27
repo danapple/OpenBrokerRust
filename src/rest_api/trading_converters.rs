@@ -58,11 +58,20 @@ impl entities::trading::OrderState {
 }
 
 impl Order {
-    pub fn to_exchange_order(&self, instrument_manager: ThinData<InstrumentManager>) -> exchange_interface::trading::Order {
+    pub fn to_exchange_order(&self, instrument_manager: ThinData<InstrumentManager>) -> Result<exchange_interface::trading::Order, anyhow::Error> {
         let mut order_legs: Vec<exchange_interface::trading::OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
-            let exchange_instrument = 
-                instrument_manager.get_instrument(leg.instrument_id);
+
+            let instrument_result = instrument_manager.get_instrument(leg.instrument_id);
+            let instrument_option = match instrument_result {
+                Ok(instrument_option) => instrument_option,
+                Err(err) => return Err(anyhow::anyhow!("Unable to get instrument: {}", err))
+            };
+            let exchange_instrument = match instrument_option {
+                Some(instrument) => instrument,
+                None => return Err(anyhow::anyhow!("No instrument with id: {}", leg.instrument_id))
+            };
+
             order_legs.push(exchange_interface::trading::OrderLeg {
                 instrument_id: exchange_instrument.exchange_instrument_id,
                 ratio: leg.ratio,
@@ -75,7 +84,7 @@ impl Order {
             quantity: self.quantity,
             legs: order_legs,
         };
-        order_exchange
+        Ok(order_exchange)
     }
 
     pub fn to_entities_order(&self, account: &Account, client_order_id: String) -> entities::trading::Order {

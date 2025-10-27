@@ -1,11 +1,12 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
 use crate::entities::account::Position;
 use crate::exchange_interface::trading::Execution;
-use crate::instrument_manager::InstrumentManager;
+use crate::instrument_manager::{Instrument, InstrumentManager};
 use crate::persistence::dao::Dao;
 use crate::time::current_time_millis;
 use crate::trade_handling::updates::AccountUpdate;
 use crate::websockets::server::WebSocketServer;
+use anyhow::Error;
 use log::{error, info};
 use std::ops::Neg;
 use std::sync::Arc;
@@ -75,7 +76,21 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
         },
     };
 
-    let instrument = instrument_manager.get_instrument_by_exchange_instrument_id(execution.instrument_id);
+    let instrument_result = instrument_manager.get_instrument_by_exchange_instrument_id(execution.instrument_id);
+    let instrument_option = match instrument_result {
+        Ok(instrument_option) => instrument_option,
+        Err(err) => {
+            error!("Unable to get instrument: {}", err);
+            return;
+        }
+    };
+    let instrument = match instrument_option {
+        Some(instrument) => instrument,
+        None => {
+            error!("No instrument with id: {}", execution.instrument_id);
+            return;
+        }
+    };
 
     let position_result = txn.get_position(&account.account_key, instrument.instrument_id).await;
 
