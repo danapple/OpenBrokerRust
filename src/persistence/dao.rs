@@ -12,6 +12,8 @@ pub enum DaoError {
     ExecuteFailed { description: String },
     QueryFailed { description: String },
     OptimisticLockingFailed { description: String },
+    ConversionFailed { description: String },
+
 }
 
 impl fmt::Display for DaoError {
@@ -24,6 +26,7 @@ impl fmt::Display for DaoError {
             DaoError::ExecuteFailed { ref description } => description.fmt(f),
             DaoError::QueryFailed { ref description } => description.fmt(f),
             DaoError::OptimisticLockingFailed { ref description } => description.fmt(f),
+            DaoError::ConversionFailed { ref description } => description.fmt(f),
         }
     }
 }
@@ -38,16 +41,18 @@ impl Error for DaoError {
             DaoError::ExecuteFailed { ref description } => description,
             DaoError::QueryFailed { ref description } => description,
             DaoError::OptimisticLockingFailed { ref description } => description,
+            DaoError::ConversionFailed { ref description } => description,
+
         }
     }
 }
 
-pub fn gen_dao_error(method: &str, y: tokio_postgres::Error) -> DaoError {
-    error!("{} {}: {}", method, y.to_string(), match y.as_db_error() {
+pub fn gen_dao_error(method: &str, postgres_error: tokio_postgres::Error) -> DaoError {
+    error!("{} {}: {}", method, postgres_error.to_string(), match postgres_error.as_db_error() {
                 Some(x) => format!("{}", x),
                 None => "none".to_string()});
     DaoError::ExecuteFailed {
-        description: y.to_string()
+        description: postgres_error.to_string()
     }
 }
 

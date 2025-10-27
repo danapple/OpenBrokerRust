@@ -138,8 +138,11 @@ impl<'b> DaoTransaction<'b> {
 
         };
 
-        let order_state_map = convert_rows_to_order_states(res);
-        Ok(order_state_map)
+        let order_state_map_result = convert_rows_to_order_states(res);
+        match order_state_map_result {
+            Ok(order_state_map) => Ok(order_state_map),
+            Err(db_error) => Err(db_error)
+        }
     }
 
     pub async fn get_order_by_ext_order_id(&self, account_key: &String, ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
@@ -159,7 +162,12 @@ impl<'b> DaoTransaction<'b> {
                 });
             }
         }
-        let order_state_map = convert_rows_to_order_states(res);
+        let order_state_map_result = convert_rows_to_order_states(res);
+        let order_state_map = match order_state_map_result {
+            Ok(order_state_map) => order_state_map,
+            Err(db_error) => return Err(db_error)
+        };
+
         let order_state = match order_state_map.get(ext_order_id) {
             None => {None}
             Some(x) => { Some(x.clone()) }
@@ -183,8 +191,11 @@ impl<'b> DaoTransaction<'b> {
                 });
             }
         }
-        let order_state_map = convert_rows_to_order_states(res);
-
+        let order_state_map_result = convert_rows_to_order_states(res);
+        let order_state_map = match order_state_map_result {
+            Ok(order_state_map) => order_state_map,
+            Err(db_error) => return Err(db_error)
+        };
         let order_state = order_state_map.values().next();
         let order_state = match order_state {
             None => {None}
@@ -194,16 +205,26 @@ impl<'b> DaoTransaction<'b> {
     }
 }
 
-fn convert_rows_to_order_states(res: Vec<Row>) -> HashMap<String, OrderState> {
+fn convert_rows_to_order_states(res: Vec<Row>) -> Result<HashMap<String, OrderState>, DaoError> {
     let mut order_states = HashMap::new();
     for row in res {
         let ext_order_id: String = row.get("extOrderId");
-        let order_state_entry = order_states.entry(ext_order_id);
-        let order_state = order_state_entry.or_insert_with(|| convert_row_to_order_state(&row));
-        add_leg_to_order_state(order_state, &row);
+        let order_state_result = order_states.get_mut(&ext_order_id);
+        match order_state_result {
+            Some(order_state) => {
+                add_leg_to_order_state(order_state, &row);
+            }
+            None => {
+                let mut order_state = match convert_row_to_order_state(&row) {
+                    Ok(order_state) => order_state,
+                    Err(dao_error) => return Err(dao_error),
+                };
+                add_leg_to_order_state(&mut order_state, &row);
+                order_states.insert(ext_order_id, order_state);
+            }
+        }
     }
-
-    order_states
+    Ok(order_states)
 }
 
 fn add_leg_to_order_state(order_state: &mut OrderState, row: &Row) {
@@ -213,11 +234,20 @@ fn add_leg_to_order_state(order_state: &mut OrderState, row: &Row) {
         ratio: row.get("ratio"),
     };
     order_state.get_order_mut().add_leg(leg);
-
 }
 
-fn convert_row_to_order_state(row: &Row) -> OrderState {
-    OrderState {
+fn convert_row_to_order_state(row: &Row) -> Result<OrderState, DaoError> {
+    let row_order_status = row.get("orderStatus");
+    let order_status_result = OrderStatus::from_str(row_order_status);
+    let order_status = match order_status_result {
+        Ok(order_status) => order_status,
+        Err(()) => {
+            return Err(DaoError::ConversionFailed {
+                description: format!("Unknown order status {}", row_order_status)
+            })
+        }
+    };
+    Ok(OrderState {
         order: Order {
             order_id: row.get("orderId"),
             account_id: row.get("accountId"),
@@ -230,9 +260,9 @@ fn convert_row_to_order_state(row: &Row) -> OrderState {
             legs: vec![],
         },
         update_time: row.get("updateTime"),
-        order_status: OrderStatus::from_str(row.get("orderStatus")).unwrap(),
+        order_status,
         version_number: row.get("versionNumber"),
-    }
+    })
 }
 
 const ORDER_QUERY: &str = "SELECT base.orderId, base.accountId, base.orderNumber, \
