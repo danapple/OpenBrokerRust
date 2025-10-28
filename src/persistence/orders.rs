@@ -1,10 +1,12 @@
 use crate::entities::trading::{Order, OrderLeg, OrderState};
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
-use crate::rest_api::trading::OrderStatus;
+use crate::rest_api::trading::{is_order_status_open, OrderStatus};
+use crate::time::current_time_millis;
 use std::collections::HashMap;
 use std::str::FromStr;
+use strum::IntoEnumIterator;
 use tokio_postgres::Row;
-
+// 0.17.1
 
 impl<'b> DaoTransaction<'b> {
     pub async fn save_order(&self, mut order_state: OrderState) -> Result<OrderState, DaoError> {
@@ -126,13 +128,23 @@ impl<'b> DaoTransaction<'b> {
     }
 
     pub async fn get_orders(&self, account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
+        let mut open_statuses = Vec::new();
+        for order_status in OrderStatus::iter() {
+            if (is_order_status_open(&order_status)) {
+                open_statuses.push(order_status.to_string());
+            }
+        }
+
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
         query_string.push_str("WHERE account.accountKey = $1 ");
+        query_string.push_str(" AND (state.updateTime > $2 OR state.orderStatus = ANY ($3)) ");
         query_string.push_str("ORDER BY base.orderNumber DESC");
 
+        let current_time_millis = current_time_millis();
+        let day_ago = current_time_millis - 86400 * 1000;
         let res = match self.transaction.query(&query_string,
-                                               &[&account_key]).await {
+                                               &[&account_key, &day_ago, &open_statuses]).await {
             Ok(x) => x,
             Err(db_error) => { return Err(gen_dao_error("get_orders", db_error)); }
 

@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::time::SystemTime;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use tokio_postgres::types::{FromSql, ToSql};
 
-#[derive(Debug, Deserialize, Serialize, Clone, ToSql, FromSql, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, ToSql, FromSql, PartialEq, EnumIter)]
 pub enum OrderStatus {
     Rejected,
     Pending,
