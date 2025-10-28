@@ -1,22 +1,6 @@
 use crate::persistence::dao::Dao;
+use crate::rest_api::account::Privilege;
 use anyhow::Error;
-use postgres_types::{FromSql, ToSql};
-use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
-
-#[derive(Debug, Deserialize, Serialize, Clone, ToSql, FromSql, PartialEq)]
-pub enum Privilege {
-    Owner,
-    Read,
-    Submit,
-    Cancel,
-}
-
-impl Display for Privilege {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
 
 #[derive(Clone)]
 pub struct AccessControl {

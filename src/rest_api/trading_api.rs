@@ -1,4 +1,4 @@
-use crate::access_control::{AccessControl, Privilege};
+use crate::access_control::AccessControl;
 use std::collections::HashMap;
 use std::string::ToString;
 
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::entities::trading::OrderLeg;
 use crate::instrument_manager::{Instrument, InstrumentManager};
 use crate::persistence::dao::{Dao, DaoError};
+use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500, send_order_state};
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};

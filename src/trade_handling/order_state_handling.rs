@@ -33,10 +33,10 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSoc
     match txn.get_order_by_client_order_id(&order_state.order.client_order_id).await {
         Ok(db_order_state_option) => {
             match db_order_state_option {
-                Some(mut db_order_state_option) => {
-                    db_order_state_option.order_status = order_status_to_rest_api_order_status(order_state.order_status);
-                    db_order_state_option.update_time = order_state.update_time;
-                    match txn.update_order(&mut db_order_state_option).await {
+                Some(mut db_order_state) => {
+                    db_order_state.order_status = order_status_to_rest_api_order_status(order_state.order_status);
+                    db_order_state.update_time = order_state.update_time;
+                    match txn.update_order(&mut db_order_state).await {
                         Ok(x) => x,
                         Err(err) => {
                             error!("Unable to update order: {}", err);
@@ -44,13 +44,22 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSoc
                         },
                     };
 
-                    let account = match txn.get_account(db_order_state_option.order.account_id).await {
-                        Ok(x) => x,
+                    let account_option = match txn.get_account(db_order_state.order.account_id).await {
+                        Ok(account_option) => account_option,
                         Err(err) => {
                             error!("Unable to get_account: {}", err);
                             return;
                         },
                     };
+
+                    let account = match account_option {
+                        Some(account) => account,
+                        None => {
+                            error!("No account for id: {}", db_order_state.order.account_id);
+                            return;
+                        }
+                    };
+
                     match txn.commit().await {
                         Ok(x) => x,
                         Err(err) => {
@@ -62,10 +71,10 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSoc
                         balance: None,
                         position: None,
                         trade: None,
-                        order_state: Some(db_order_state_option.to_rest_api_order_state(account.account_key.as_str())),
+                        order_state: Some(db_order_state.to_rest_api_order_state(account.account_key.as_str())),
                     };
                     web_socket_server.send_account_message(account.account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &account_update);
-                },
+                }
                 _ => {
                     error!("update_order_state Trying to update unknown order {}", &order_state.order.client_order_id);
                     return;

@@ -1,31 +1,21 @@
-use crate::access_control::{AccessControl, Privilege};
 use crate::constants::APPLICATION_JSON;
 use crate::persistence::dao::Dao;
+use crate::rest_api;
 use crate::rest_api::base_api;
-use crate::rest_api::base_api::log_dao_error_and_return_500;
-use actix_web::web::{Path, ThinData};
+use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
+use actix_web::web::ThinData;
 use actix_web::{HttpRequest, HttpResponse};
 use log::error;
 use std::collections::HashMap;
 
-#[get("/accounts/{account_key}/positions")]
-pub async fn get_positions(dao: ThinData<Dao>,
-                           access_control: ThinData<AccessControl>,
-                           account_key: Path<(String,)>,
-                           req: HttpRequest,) -> HttpResponse {
-    let account_key = &account_key.0.as_str().to_string();
-    let api_key = base_api::get_api_key(req);
-
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
-        Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
+#[get("/accounts")]
+pub async fn get_accounts(dao: ThinData<Dao>,
+                          req: HttpRequest,) -> HttpResponse {
+    let api_key = match base_api::get_api_key(req) {
+        Some(api_key) => api_key,
+        None => return HttpResponse::PreconditionFailed().finish()
     };
-    if !allowed {
-        return HttpResponse::Forbidden().finish();
-    }
+
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
@@ -34,101 +24,48 @@ pub async fn get_positions(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let positions = match txn.get_positions(account_key).await {
-        Ok(x) => x,
-        Err(y) => {
-            error!("get_positions error: {}", y);
-            return HttpResponse::NotFound()
-                .content_type(APPLICATION_JSON)
-                .finish();
-        },
+    let accesses = match txn.get_accesses(api_key.as_str()).await {
+        Ok(accesses) => accesses,
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let mut rest_api_positions = HashMap::new();
-    for position in positions.values() {
-        rest_api_positions.insert(position.position_id, position.to_rest_api_position(account_key));
-    }
+
+    let account_ids: Vec<i64> = accesses.iter().map(|access| access.account_id).collect();
     
+    let accounts = match txn.get_accounts(account_ids).await {
+        Ok(accounts) => accounts,
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
+    };
+
+    let mut account_map: HashMap<i64, rest_api::account::Account> = HashMap::new();
+
+    for access_db in accesses {
+        if !account_map.contains_key(&access_db.account_id) {
+            let account = match accounts.get(&access_db.account_id) {
+                Some(account) => account,
+                None => return log_text_error_and_return_500(format!("Account {} not found", access_db.account_id)),
+            };
+            let new_rest_api_account = account.to_rest_api_account(access_db.nickname.as_str());
+            account_map.insert(access_db.account_id, new_rest_api_account);
+        }
+        let rest_api_account = match account_map.get_mut(&access_db.account_id) {
+            Some(rest_api_account) => rest_api_account,
+            None => return log_text_error_and_return_500(format!("Account {} not found in access_map", access_db.account_id)),
+        };
+        rest_api_account.privileges.push(access_db.privilege);
+    }
+
+    match txn.rollback().await {
+        Ok(_) => {},
+        Err(error) => {
+            error!("Failed while rolling back: {}", error.to_string());
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let mut accounts = Vec::new();
+    for account in account_map.values() {
+        accounts.push(account);
+    }
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
-        .json(rest_api_positions)
-}
-
-#[get("/accounts/{account_key}/balances")]
-pub async fn get_balance(dao: ThinData<Dao>,
-                         access_control: ThinData<AccessControl>,
-                         account_key: Path<(String,)>,
-                         req: HttpRequest,) -> HttpResponse {
-    let account_key = &account_key.0.as_str().to_string();
-    let api_key = base_api::get_api_key(req);
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
-        Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-    if !allowed {
-        return HttpResponse::Forbidden().finish();
-    }
-    let mut db_connection = match dao.get_connection().await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    match txn.get_balance(account_key).await {
-        Ok(balance) => {
-            HttpResponse::Ok()
-                .content_type(APPLICATION_JSON)
-                .json(Vec::new().push(balance.to_rest_api_balance(account_key)))
-        }
-        Err(y) => {
-            error!("get_balance error {}", y);
-            HttpResponse::NotFound()
-                .content_type(APPLICATION_JSON)
-                .finish()
-        }
-    }
-}
-
-#[get("/accounts/{account_key}")]
-pub async fn get_account(dao: ThinData<Dao>,
-                         access_control: ThinData<AccessControl>,
-                         account_key: Path<(String,)>,
-                         req: HttpRequest,) -> HttpResponse {
-    let account_key = &account_key.0.as_str().to_string();
-    let api_key = base_api::get_api_key(req);
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
-        Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-    if !allowed {
-        return HttpResponse::Forbidden().finish();
-    }
-    let mut db_connection = match dao.get_connection().await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    match txn.get_account_by_account_key(account_key).await {
-        Ok(account) => {
-            HttpResponse::Ok()
-                .content_type(APPLICATION_JSON)
-                .json(account.to_rest_api_account())
-        },
-        Err(y) =>  {
-            error!("get_account error {}", y);
-            HttpResponse::NotFound()
-                .content_type(APPLICATION_JSON)
-                .finish()
-        }
-    }
+        .json(accounts)
 }

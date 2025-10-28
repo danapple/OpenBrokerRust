@@ -1,6 +1,7 @@
-use crate::access_control::{AccessControl, Privilege};
+use crate::access_control::AccessControl;
 use crate::config::BrokerConfig;
 use crate::persistence::dao::Dao;
+use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
 use crate::websockets::senders::{send_balance, send_orders, send_positions};

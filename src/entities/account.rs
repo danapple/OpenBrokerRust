@@ -1,3 +1,5 @@
+use crate::rest_api::account::Privilege;
+
 #[derive(Clone)]
 pub struct Position {
     pub position_id: i64,
@@ -26,3 +28,12 @@ pub struct Balance {
     pub update_time: i64,
     pub version_number: i64,
 }
+
+#[derive(Clone)]
+pub struct Access {
+    pub customer_id: i64,
+    pub account_id: i64,
+    pub nickname: String,
+    pub privilege: Privilege,
+}
+

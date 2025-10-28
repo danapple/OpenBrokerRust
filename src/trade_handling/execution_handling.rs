@@ -1,5 +1,5 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
-use crate::entities::account::Position;
+use crate::entities::account::{Account, Position};
 use crate::exchange_interface::trading::Execution;
 use crate::instrument_manager::{Instrument, InstrumentManager};
 use crate::persistence::dao::Dao;
@@ -53,12 +53,20 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
         }
     };
 
-    let account = match txn.get_account(db_order_state.order.account_id).await {
-        Ok(x) => x,
+    let account_option = match txn.get_account(db_order_state.order.account_id).await {
+        Ok(account_option) => account_option,
         Err(err) => {
             error!("Unable to get_account: {}", err);
             return;
         },
+    };
+
+    let account = match account_option {
+        Some(account) => account,
+        None => {
+            error!("No account for id: {}", db_order_state.order.account_id);
+            return;
+        }
     };
 
     let execution_cost = (execution.price * execution.quantity as f32);

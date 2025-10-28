@@ -33,6 +33,7 @@ use crate::vetting::all_pass_vetter::AllPassVetter;
 use crate::websockets::{server, ws_handler};
 use instrument_manager::InstrumentManager;
 use rest_api::account_api;
+use rest_api::balance_position_api;
 use rest_api::trading_api;
 
 mod entities;
@@ -120,9 +121,9 @@ async fn main() -> io::Result<()> {
             .service(trading_api::preview_order)
             .service(trading_api::submit_order)
             .service(trading_api::cancel_order)
-            .service(account_api::get_positions)
-            .service(account_api::get_balance)
-            .service(account_api::get_account)
+            .service(balance_position_api::get_positions)
+            .service(balance_position_api::get_balance)
+            .service(account_api::get_accounts)
             .service(web::resource("/ws").route(web::get().to(ws_handler::ws_setup)))
             .service(fs::Files::new("/", "./resources/static")
                          .show_files_listing()
