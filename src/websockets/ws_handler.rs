@@ -379,6 +379,19 @@ impl WsHandler {
             },
         };
         self.subscriptions.insert(sub.destination.clone(), sub.id.clone());
+        let readable = match self.web_socket_server.retained_messages.read() {
+            Ok(readable) => readable,
+            Err(readable_error) => {
+                error!("Unable to get read access to retained_messages: {}", readable_error);
+                return Ok(());
+            }
+        };
+        match readable.get(&sub.destination) {
+            None => {}
+            Some(retained_message) => {
+                conn_tx.send(retained_message.clone()).unwrap_or_else(|send_error| error!("Error when sending retained message: {}", send_error));
+            }
+        };
         Ok(())
     }
 }

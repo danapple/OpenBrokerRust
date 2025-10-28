@@ -4,13 +4,13 @@ use serde;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 use strfmt::strfmt;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Clone, Debug)]
 pub struct WebSocketServer {
-    pub connections: Arc<RwLock<HashMap<String, Vec<UnboundedSender<QueueItem>>>>>
+    pub connections: Arc<RwLock<HashMap<String, Vec<UnboundedSender<QueueItem>>>>>,
+    pub retained_messages: Arc<RwLock<HashMap<String, QueueItem>>>
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -22,7 +22,8 @@ pub(crate) struct QueueItem {
 impl WebSocketServer {
     pub fn new() -> Self {
         WebSocketServer{
-            connections: Arc::new(RwLock::new(HashMap::new()))
+            connections: Arc::new(RwLock::new(HashMap::new())),
+            retained_messages: Arc::new(RwLock::new(HashMap::new()))
         }
     }
 
@@ -38,26 +39,42 @@ impl WebSocketServer {
         };
         self.send_message(new_destination, body);
     }
-    pub fn send_message(&mut self, destination: String, body: &impl Serialize) {
+    pub fn send_retained_message(&mut self, destination: String, body: &impl Serialize) {
+        let queue_item = match self.send_message(destination.clone(), body) {
+            Ok(queue_item) => queue_item,
+            Err(send_message_error) => {
+                error!("Could not send message: {}", send_message_error);
+                return;
+            }
+        };
+        let mut writable = match self.retained_messages.write() {
+            Ok(writable) => writable,
+            Err(writable_error) => {
+                error!("Unable to get write access to retained_messages: {}", writable_error);
+                return;
+            },
+        };
+        writable.insert(destination, queue_item);
+    }
+    pub fn send_message(&mut self, destination: String, body: &impl Serialize) -> Result<QueueItem, anyhow::Error> {
         let queue_item = match Self::create_queue_item(&destination, body) {
             Ok(value) => value,
             Err(queue_item_error) => {
-                error!("send_message queue item error {}", queue_item_error.to_string());
-                return;
+                return Err(anyhow::anyhow!("send_message queue item error {}", queue_item_error.to_string()));
             },
         };
         let mut writable_conns = match self.connections.write() {
             Ok(writable_conns) => writable_conns,
             Err(poison_error) => {
                 error!("send_message could not get writable_conns {}", poison_error.to_string());
-                return;
+                return Ok(queue_item);
             },
         };
         let conns_list_wrapped = writable_conns.get_mut(&destination);
         let conns_list = match conns_list_wrapped {
             None => {
                 debug!("No subscribers for {}", destination);
-                return;
+                return Ok(queue_item);
             }
             Some(conns_list) => conns_list
         };
@@ -75,6 +92,7 @@ impl WebSocketServer {
         for pos in dropped_conns {
             conns_list.remove(pos);
         }
+        Ok(queue_item)
     }
 
     fn create_queue_item(destination: &String, body: &impl Serialize) -> Result<QueueItem, anyhow::Error> {
@@ -84,7 +102,7 @@ impl WebSocketServer {
                 return Err(anyhow::anyhow!("send_message serialization error {}", fmt_error.to_string()));
             },
         };
-        info!("send_message to destination {}: {}", destination, serialized_body);
+        debug!("send_message to destination {}: {}", destination, serialized_body);
         let queue_item = QueueItem {
             destination: destination.clone(),
             body: serialized_body

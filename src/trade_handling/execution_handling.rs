@@ -12,9 +12,9 @@ use std::ops::Neg;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub fn handle_execution(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: InstrumentManager, execution: Execution) {
+pub fn handle_execution(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, execution: Execution) {
     info!("Execution: {:?}", execution);
-    tokio::spawn(handle_execution_thread(mutex.clone(), web_socket_server.clone(), dao.clone(), instrument_manager, execution));
+    tokio::spawn(handle_execution_thread(mutex.clone(), web_socket_server.clone(), dao.clone(), instrument_manager.clone(), execution));
 }
 
 async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, instrument_manager: InstrumentManager, execution: Execution) {

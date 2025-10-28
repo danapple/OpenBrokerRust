@@ -7,11 +7,11 @@ use crate::config::BrokerConfig;
 use crate::trade_handling::execution_handling::handle_execution;
 use crate::trade_handling::order_state_handling::handle_order_state;
 
+use actix_cors::Cors;
 use actix_web::{dev::ServiceResponse, http::header, middleware, middleware::{ErrorHandlerResponse, ErrorHandlers}, web, web::ThinData, App, HttpServer, Result};
+use confik::{Configuration as _, EnvSource};
 use std::io;
 use std::sync::Arc;
-
-use confik::{Configuration as _, EnvSource};
 use tokio_postgres::NoTls;
 
 use dotenv::dotenv;
@@ -116,6 +116,12 @@ async fn main() -> io::Result<()> {
             .app_data(ThinData(web_socket_server.clone()))
             .wrap(middleware::Logger::default())
             .wrap(ErrorHandlers::new().default_handler(add_error_header))
+
+            .wrap(
+                Cors::permissive()
+                    .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                    .max_age(3600)
+                    )
             .service(trading_api::get_order)
             .service(trading_api::get_orders)
             .service(trading_api::preview_order)
@@ -129,7 +135,7 @@ async fn main() -> io::Result<()> {
                          .show_files_listing()
                          .index_file("index.html")
                          .use_last_modified(true),)
-    })
+         })
         .bind(config.server_addr)?
         .run()
         .await

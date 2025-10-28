@@ -10,3 +10,5 @@ pub(crate) mod trading_converters;
 pub(crate) mod base_api;
 mod account_converters;
 pub(crate) mod account_api;
+pub(crate) mod market_data;
+pub(crate) mod market_data_converters;
