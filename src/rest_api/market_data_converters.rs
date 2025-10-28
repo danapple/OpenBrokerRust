@@ -15,8 +15,8 @@ impl exchange_interface::market_data::LastTrade {
 
 impl exchange_interface::market_data::MarketDepth {
     pub fn to_rest_api_position(&self, instrument_id: i64) -> MarketDepth {
-        let buys = self.buys.iter().map(|buy| { PriceLevel { price: buy.price, quantity: buy.quantity } }).collect();
-        let sells = self.sells.iter().map(|buy| { PriceLevel { price: buy.price, quantity: buy.quantity } }).collect();
+        let buys = self.buys.iter().map(|buy| { buy.to_rest_api_price_level() } ).collect();
+        let sells = self.sells.iter().map(|sell| { sell.to_rest_api_price_level() } ).collect();
 
         MarketDepth {
             sequence_number: self.sequence_number,
@@ -29,7 +29,7 @@ impl exchange_interface::market_data::MarketDepth {
 }
 
 impl exchange_interface::market_data::PriceLevel {
-    pub fn to_rest_api_balance(&self) -> PriceLevel {
+    pub fn to_rest_api_price_level(&self) -> PriceLevel {
         PriceLevel {
             price: self.price,
             quantity: self.quantity,
