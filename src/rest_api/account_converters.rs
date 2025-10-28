@@ -20,6 +20,7 @@ impl entities::account::Position {
             instrument_id: self.instrument_id,
             quantity: self.quantity,
             cost: self.cost,
+            closed_gain: self.closed_gain,
             version_number: self.version_number,
         }
     }

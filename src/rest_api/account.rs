@@ -47,6 +47,7 @@ pub struct Position {
     pub quantity: i32,
     pub cost: f32,
     pub version_number: i64,
+    pub closed_gain: f32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
