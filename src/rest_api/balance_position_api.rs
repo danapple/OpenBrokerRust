@@ -4,6 +4,7 @@ use crate::persistence::dao::Dao;
 use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api;
 use crate::rest_api::base_api::log_dao_error_and_return_500;
+use actix_session::Session;
 use actix_web::web::{Path, ThinData};
 use actix_web::{HttpRequest, HttpResponse};
 use log::error;
@@ -12,12 +13,12 @@ use std::collections::HashMap;
 #[get("/accounts/{account_key}/positions")]
 pub async fn get_positions(dao: ThinData<Dao>,
                            access_control: ThinData<AccessControl>,
+                           session: Session,
                            account_key: Path<(String,)>,
                            req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
-    let api_key = base_api::get_api_key(req);
 
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -57,11 +58,11 @@ pub async fn get_positions(dao: ThinData<Dao>,
 #[get("/accounts/{account_key}/balances")]
 pub async fn get_balance(dao: ThinData<Dao>,
                          access_control: ThinData<AccessControl>,
+                         session: Session,
                          account_key: Path<(String,)>,
                          req: HttpRequest,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
-    let api_key = base_api::get_api_key(req);
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());

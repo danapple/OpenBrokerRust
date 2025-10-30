@@ -8,6 +8,8 @@ use crate::trade_handling::execution_handling::handle_execution;
 use crate::trade_handling::order_state_handling::handle_order_state;
 
 use actix_cors::Cors;
+use actix_session::{storage::RedisSessionStore, Session, SessionMiddleware};
+use actix_web::cookie::Key;
 use actix_web::{dev::ServiceResponse, http::header, middleware, middleware::{ErrorHandlerResponse, ErrorHandlers}, web, web::ThinData, App, HttpServer, Result};
 use confik::{Configuration as _, EnvSource};
 use std::io;
@@ -16,14 +18,16 @@ use tokio_postgres::NoTls;
 
 use dotenv::dotenv;
 use env_logger::Env;
-use log::{error, info};
+use log::info;
 
 mod constants;
 
 mod rest_api;
+mod auth;
 mod exchange_interface;
 
 use crate::access_control::AccessControl;
+use crate::auth::account_pages;
 use crate::exchange_interface::exchange_client::ExchangeClient;
 use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, OrderState};
 use crate::exchange_interface::websocket_client::ExchangeWebsocketClient;
@@ -92,6 +96,7 @@ async fn main() -> io::Result<()> {
         instrument_manager.add_instrument(instrument.instrument_id, base_exchange_client.clone());
     }
     info!("Done adding instruments");
+    let oconfig = config.clone();
 
     let web_socket_server = server::WebSocketServer::new();
 
@@ -103,10 +108,17 @@ async fn main() -> io::Result<()> {
                                                                  handle_depth, handle_last_trade);
     exchange_websocket_client.start_exchange_websockets().await;
     
-    let access_control = AccessControl::new(dao.clone());
+    let access_control = AccessControl::new();
 
     let vetter = AllPassVetter::new();
-    
+
+    let secret_key = Key::from(config.session_key.as_bytes());
+    let redis_store = match RedisSessionStore::new(config.redis_addr)
+        .await {
+        Ok(redis_store) => redis_store,
+        Err(redis_error) => panic!("Could not create redis store: {}", redis_error),
+    };
+
     HttpServer::new(move || {
         App::new()
             .app_data(ThinData(instrument_manager.clone()))
@@ -114,9 +126,15 @@ async fn main() -> io::Result<()> {
             .app_data(ThinData(access_control.clone()))
             .app_data(ThinData(vetter.clone()))
             .app_data(ThinData(web_socket_server.clone()))
+            .app_data(ThinData(oconfig.clone()))
             .wrap(middleware::Logger::default())
+            .wrap(
+                SessionMiddleware::new(
+                    redis_store.clone(),
+                    secret_key.clone(),
+                )
+            )
             .wrap(ErrorHandlers::new().default_handler(add_error_header))
-
             .wrap(
                 Cors::permissive()
                     .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
@@ -130,10 +148,15 @@ async fn main() -> io::Result<()> {
             .service(balance_position_api::get_positions)
             .service(balance_position_api::get_balance)
             .service(account_api::get_accounts)
-            .service(web::resource("/ws").route(web::get().to(ws_handler::ws_setup)))
-            .service(fs::Files::new("/", "./resources/static")
+            .service(account_pages::welcome)
+            .service(account_pages::register)
+            .service(account_pages::login)
+            .service(account_pages::loginapi)
+            .service(account_pages::logout)
+            .service(ws_handler::ws_setup)
+            .service(fs::Files::new("/app", "./resources/static/app")
                          .show_files_listing()
-                         .index_file("index.html")
+                         .index_file("app.html")
                          .use_last_modified(true),)
          })
         .bind(config.server_addr)?

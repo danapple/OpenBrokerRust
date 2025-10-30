@@ -1,7 +1,6 @@
 pub(crate) mod trading_api;
 pub(crate) mod balance_position_api;
 
-
 pub(crate) mod trading;
 pub(crate) mod customer;
 pub(crate) mod account;

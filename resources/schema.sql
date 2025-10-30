@@ -1,4 +1,5 @@
 
+DROP TABLE IF EXISTS verification_codes;
 DROP TABLE IF EXISTS balance;
 DROP TABLE IF EXISTS position;
 
@@ -15,7 +16,9 @@ DROP TABLE IF EXISTS privilege;
 DROP TABLE IF EXISTS customer_account_relationship;
 DROP TABLE IF EXISTS account;
 DROP TABLE IF EXISTS api_key;
+DROP TABLE IF EXISTS login_info;
 DROP TABLE IF EXISTS customer;
+DROP TABLE IF EXISTS offer_code;
 
 DROP TABLE IF EXISTS instrument;
 DROP TABLE IF EXISTS id;
@@ -34,9 +37,24 @@ CREATE TABLE IF NOT EXISTS instrument (
 
 CREATE UNIQUE INDEX unq_exchange_instrument ON instrument (exchangeUrl, exchangeInstrumentId);
 
+
+CREATE TABLE IF NOT EXISTS offer_code (
+   offerCodeId BIGSERIAL PRIMARY KEY,
+   offerCode VARCHAR UNIQUE NOT NULL,
+   offerDescription VARCHAR NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS customer (
     customerId BIGSERIAL PRIMARY KEY,
-    customerName VARCHAR NOT NULL
+    customerName VARCHAR NOT NULL,
+    emailAddress VARCHAR NOT NULL,
+    offerCodeId BIGINT NULL REFERENCES offer_code
+);
+
+CREATE TABLE IF NOT EXISTS login_info (
+    loginInfoId BIGSERIAL PRIMARY KEY,
+    customerId BIGINT NOT NULL REFERENCES customer,
+    passwordHash VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS api_key (
@@ -69,7 +87,8 @@ INSERT INTO privilege (privilege) VALUES
     ('Owner'),
     ('Read'),
     ('Submit'),
-    ('Cancel');
+    ('Cancel'),
+    ('Withdraw');
 
 CREATE TABLE IF NOT EXISTS access (
     accessId BIGSERIAL PRIMARY KEY,
@@ -160,10 +179,22 @@ CREATE TABLE IF NOT EXISTS balance (
     versionNumber BIGINT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS verification_codes (
+    verificationCodeId BIGSERIAL PRIMARY KEY,
+    customerId BIGINT NOT NULL REFERENCES customer,
+    verificationCode VARCHAR NOT NULL,
+    createTime BIGINT NOT NULL,
+);
 
-GRANT SELECT ON TABLE customer, api_key, account, customer_account_relationship, privilege,access TO broker_user;
+GRANT SELECT ON TABLE customer, api_key, login_info, account, customer_account_relationship, privilege,
+    access, offer_code, login_info TO broker_user;
 
-GRANT SELECT, INSERT ON TABLE order_base, order_number_generator, order_leg, order_status, order_state, order_state_history, trade, position, balance TO broker_user;
-GRANT UPDATE ON TABLE public.order_state, public.position, public.balance, public.order_number_generator TO broker_user;
+GRANT SELECT, INSERT ON TABLE order_base, order_number_generator, order_leg, order_status, order_state,
+    order_state_history, trade, position, balance, customer, login_info
+    TO broker_user;
+
+GRANT UPDATE ON TABLE public.order_state, public.position, public.balance, public.order_number_generator,
+    public.login_info
+    TO broker_user;
 
 GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO broker_user;

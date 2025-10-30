@@ -1,12 +1,10 @@
 #!/usr/bin/python3.8
 import getopt
 import sys
-
 import requests
-
+from login import login
 
 def main(argv):
-
     api_key=''
     price=''
     quantity=''
@@ -29,29 +27,25 @@ def main(argv):
          if opt == '--apiKey':
              apiKey=arg
 
+    (url, _, session) = login(apiKey)
+
     req = { "price": float(price), \
                            "quantity": int(quantity),
                            "legs": [ \
                                {"ratio": 1, "instrument_id": int(instrumentId)} \
                                ]\
             }
-                           
-                         
 
-    cookies = { "api_key": apiKey }
-
-    #path="http://openexchange.eu-central-1.elasticbeanstalk.com/order/" + client_order_id
-    path="http://localhost:8080/accounts/" + accountKey + "/orders"
+    path=url + "/accounts/" + accountKey + "/orders"
 
     print ('Requesting at path', path)
     print ('req', req)
 
-    r = requests.post(path , json=req, cookies=cookies, verify=False)
+    r = session.post(path, json=req, verify=False)
 
-    print ('Response')
+    print ('Submit order Response')
     print(r)
     print(r.json())
 
-
 if __name__ == "__main__":
-   main(sys.argv[1:])
+    main(sys.argv[1:])

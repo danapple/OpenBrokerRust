@@ -1,7 +1,6 @@
 use crate::access_control::AccessControl;
-use crate::config::BrokerConfig;
 use crate::persistence::dao::Dao;
-use crate::rest_api::account::Privilege;
+use crate::rest_api::account::{Account, Privilege};
 use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
 use crate::websockets::senders::{send_balance, send_orders, send_positions};
@@ -9,19 +8,17 @@ use crate::websockets::server::{QueueItem, WebSocketServer};
 use crate::websockets::stomp;
 use crate::websockets::stomp::{parse_message, SendContent, SubscribeContent};
 use actix_web::web::ThinData;
-use actix_web::{error, web, HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, Closed, Session};
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use bimap::BiHashMap;
 use futures_util::StreamExt;
 use log::trace;
 use log::{debug, error, info, warn};
 use serde;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use strfmt::strfmt;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::spawn_local;
 use tokio::{sync::mpsc, time::interval};
@@ -29,53 +26,55 @@ use tokio::{sync::mpsc, time::interval};
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
+#[get("/ws")]
 pub async fn ws_setup(
     req: HttpRequest,
     dao: ThinData<Dao>,
+    session: actix_session::Session,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     stream: web::Payload,
-) -> Result<HttpResponse, actix_web::Error> {
+) -> HttpResponse {
+    info!("Websocket connection requested for session {:p}", &session);
 
-    let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
+    let (res, ws_session, msg_stream) = match actix_ws::handle(&req, stream) {
+        Ok(x) => x,
+        Err(ws_error) => {
+            error!("ws setup error {}", ws_error);
+            return HttpResponse::InternalServerError().finish();
+        },
+    };
 
-    let api_key = base_api::get_api_key(req);
-    let api_key = match api_key {
-        Some(api_key) => api_key,
-        None => {
-            error!("No api key available");
-            return Err(error::ErrorBadRequest("No api key available".to_string()));
-        }
-    }.to_string();
-    if api_key.is_empty() {
-        return Err(error::ErrorBadRequest("apiKey is empty"));
-    }
+    let allowed_accounts = match access_control.get_allowed_accounts(&session) {
+        Ok(allowed_accounts) => allowed_accounts,
+        Err(_) => todo!(),
+    };
+    info!("allowed_accounts: {:?}", allowed_accounts);
 
-    info!("Websocket connection established for {}", api_key);
     spawn_local(ws_handler(
         dao,
-        session,
+        allowed_accounts,
+        ws_session,
         web_socket_server,
         access_control,
-        msg_stream,
-        api_key
+        msg_stream
     ));
 
-    Ok(res)
+    res
 }
 
 async fn ws_handler(
     dao: ThinData<Dao>,
-    mut session: Session,
+    allowed_accounts: HashMap<String, Account>,
+    mut ws_session: Session,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     msg_stream: actix_ws::MessageStream,
-    api_key: String,
 ) {
-    let mut ws_handler_obj = WsHandler::new(dao, web_socket_server, access_control, msg_stream, api_key);
-    ws_handler_obj.start(&mut session).await;
+    let mut ws_handler_obj = WsHandler::new(dao, web_socket_server, access_control, allowed_accounts, msg_stream);
+    ws_handler_obj.start(&mut ws_session).await;
     info!("Websocket closing");
-    match session.close(None).await {
+    match ws_session.close(None).await {
         Ok(_) => {},
         Err(closed) => {
             error!("Close error closing session {}", closed);
@@ -88,8 +87,8 @@ struct WsHandler {
     dao: ThinData<Dao>,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
+    allowed_accounts: HashMap<String, Account>,
     msg_stream: AggregatedMessageStream,
-    api_key: String,
     subscriptions: BiHashMap<String, String>
 }
 
@@ -97,23 +96,23 @@ impl WsHandler {
     fn new(dao: ThinData<Dao>,
            web_socket_server: ThinData<WebSocketServer>,
            access_control: ThinData<AccessControl>,
-           in_msg_stream: actix_ws::MessageStream,
-           api_key: String) -> WsHandler {
+           allowed_accounts: HashMap<String, Account>,
+           in_msg_stream: actix_ws::MessageStream) -> WsHandler {
         WsHandler {
             dao,
             web_socket_server,
             access_control,
+            allowed_accounts,
             msg_stream:  in_msg_stream
                 .max_frame_size(128 * 1024)
                 .aggregate_continuations()
                 .max_continuation_size(2 * 1024 * 1024),
-            api_key,
             subscriptions: BiHashMap::new()
         }
     }
 
-    async fn start(&mut self, session: &mut Session) {
-        info!("Websocket connected for {}", self.api_key);
+    async fn start(&mut self, ws_session: &mut Session) {
+        info!("Websocket connected");
         let mut last_heartbeat = Instant::now();
         let mut interval = interval(HEARTBEAT_INTERVAL);
 
@@ -128,7 +127,7 @@ impl WsHandler {
                         AggregatedMessage::Ping(bytes) => {
                             trace!("Websocket Ping");
                             last_heartbeat = Instant::now();
-                            match session.pong(&bytes).await {
+                            match ws_session.pong(&bytes).await {
                                 Ok(_) => {},
                                 Err(closed) => {
                                     error!("Ping error while sending pong {}", closed);
@@ -143,7 +142,7 @@ impl WsHandler {
                         }
 
                         AggregatedMessage::Text(text) => {
-                            match self.parse_text_message(session, &conn_tx, &text.to_string()).await {
+                            match self.parse_text_message(ws_session, &conn_tx, &text.to_string()).await {
                                 Ok(_) => {},
                                 Err(closed) => {
                                     error!("Could not send text, exiting, due to {}", closed);
@@ -162,7 +161,7 @@ impl WsHandler {
                     }
                 }
                 Some(queue_item) = conn_rx.recv() => {
-                    let  send_result = self.send_queue_item(session, queue_item).await;
+                    let  send_result = self.send_queue_item(ws_session, queue_item).await;
                     match send_result {
                         Ok(_) => {},
                         Err(closed) => {
@@ -176,7 +175,7 @@ impl WsHandler {
                         info!("Websocket client timeout");
                         return;
                     }
-                    let _ = session.ping(b"").await;
+                    let _ = ws_session.ping(b"").await;
                 }
                 else => {
                     return;
@@ -209,7 +208,7 @@ impl WsHandler {
                 return false;
             }
         };
-        let allowed: bool = match self.access_control.is_allowed(&account_key, Some(self.api_key.to_string()), Privilege::Read).await {
+        let allowed: bool = match self.access_control.is_allowed_from_map(&self.allowed_accounts, &account_key, Privilege::Read) {
             Ok(allowed) => allowed,
             Err(error) => {
                 error!("Failed while checking access: {}", error.to_string());

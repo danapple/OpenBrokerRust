@@ -1,0 +1,125 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+  <title>Hello from OpenBroker</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="stylesheet" href="app/css/main.css">
+  <meta name="description" content="">
+
+  <meta property="og:title" content="">
+  <meta property="og:type" content="">
+  <meta property="og:url" content="">
+  <meta property="og:image" content="">
+  <meta property="og:image:alt" content="">
+
+  <link rel="icon" href="/old/favicon.ico" sizes="any">
+  <link rel="icon" href="/old/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="old/icon.png">
+
+  <meta name="theme-color" content="#fafafa">
+
+  <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+
+
+</head>
+
+<body>
+<div id="logout-content" class="container">
+  <a href="/logmeout">Logout</a>
+  </div>
+<noscript><h2 style="color: #ff0000">Seems your browser doesn't support Javascript! Websocket relies on Javascript being
+  enabled. Please enable
+  Javascript and reload this page!</h2></noscript>
+<div id="main-content" class="container">
+  <div id="connect-dialog"  class="row">
+
+  <div id="account-data" class="col-md-6" hidden>
+    <div class="row">
+      <div class="col-md-12">
+        <table id="accounts_table" class="table table-striped">
+          <thead>
+          <tr>
+            <th>Accounts</th>
+          </tr>
+          </thead>
+          <tbody id="accounts_body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-12">
+        <table id="balances_table" class="table table-striped">
+          <thead>
+          <tr>
+            <th>Balances</th>
+          </tr>
+          </thead>
+          <tbody id="balances_body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-12">
+        <table id="positions_table" class="table table-striped">
+          <thead>
+          <tr>
+            <th>Instrument</th>
+            <th>Quantity</th>
+            <th>Cost</th>
+            <th>Closed Gain</th>
+            <th>Action</th>
+          </tr>
+          </thead>
+          <tbody id="positions_body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-12">
+        <table id="orders_table" class="table table-striped">
+          <thead>
+          <tr>
+            <th>Order Number</th>
+            <th>Status</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Action</th>
+          </tr>
+          </thead>
+          <tbody id="orders_body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <table id="markets_table" class="table table-striped">
+        <thead>
+        <tr>
+          <th>Instrument</th>
+          <th>Data</th>
+        </tr>
+        </thead>
+        <tbody id="markets_body">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+<script src="app/js/app.js"></script>
+
+</html>

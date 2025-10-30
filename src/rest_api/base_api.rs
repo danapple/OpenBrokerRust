@@ -3,19 +3,8 @@ use crate::entities::trading::OrderState;
 use crate::persistence::dao::DaoError;
 use crate::websockets::server::WebSocketServer;
 use actix_web::web::ThinData;
-use actix_web::{HttpRequest, HttpResponse};
+use actix_web::HttpResponse;
 use log::error;
-
-pub fn get_api_key(req: HttpRequest,) -> Option<String> {
-    match req.cookie("api_key") {
-        Some(cookie) => {
-            Some(cookie.value().to_string())
-        }
-        None => {
-            None
-        }
-    }
-}
 
 pub fn send_order_state(web_socket_server: &mut ThinData<WebSocketServer>, account_key: &String, order_state: &OrderState) {
     let account_update = crate::trade_handling::updates::AccountUpdate {

@@ -65,7 +65,7 @@ impl<'b> DaoTransaction<'b> {
             };
         }
 
-        match self.transaction.execute(
+        let order_state_row_count = match self.transaction.execute(
             "INSERT INTO order_state \
                 (orderId, orderStatus, updateTime, versionNumber) \
                 VALUES ($1, $2, $3, $4)",
@@ -75,13 +75,18 @@ impl<'b> DaoTransaction<'b> {
                      &order_state.version_number
             ]
         ).await {
-            Ok(_) => 0,
+            Ok(row_count) => row_count,
             Err(db_error) => { return Err(gen_dao_error("save_order order_state", db_error)); }
         };
-
-        match self.insert_order_state_history(&order_state).await {
-            Ok(_) => {}
+        if order_state_row_count != 1 {
+            return Err(DaoError::ExecuteFailed { description: format!("save_order order_state insert returned {} rows, not 1", order_state_row_count) });
+        }
+        let order_state_history_row_count = match self.insert_order_state_history(&order_state).await {
+            Ok(row_count) => row_count,
             Err(db_error) => { return Err(db_error) }
+        };
+        if order_state_history_row_count != 1 {
+            return Err(DaoError::ExecuteFailed { description: format!("save_order order_state_history insert returned {} rows, not 1", order_state_row_count) });
         }
         Ok(order_state)
     }
@@ -107,10 +112,18 @@ impl<'b> DaoTransaction<'b> {
             return Err(DaoError::OptimisticLockingFailed{ description: "update order 0 rows modified".to_string() });
         }
         order_state.version_number = next_version_number;
-        self.insert_order_state_history(&order_state).await
+        let order_state_history_row_count = match self.insert_order_state_history(&order_state).await {
+            Ok(order_state_history_row_count) => order_state_history_row_count,
+            Err(db_error) => return Err(db_error)
+        };
+
+        if order_state_history_row_count != 1 {
+            return Err(DaoError::ExecuteFailed { description: format!("update_order order_state_history insert returned {} rows, not 1", order_state_history_row_count) });
+        };
+        Ok(())
     }
 
-    async fn insert_order_state_history(&self, order_state: &OrderState) -> Result<(), DaoError> {
+    async fn insert_order_state_history(&self, order_state: &OrderState) -> Result<u64, DaoError> {
         match self.transaction.execute(
             "INSERT INTO order_state_history \
                 (orderId, orderStatus, createTime, versionNumber) \
@@ -121,7 +134,7 @@ impl<'b> DaoTransaction<'b> {
                      &order_state.version_number
             ]
         ).await {
-            Ok(_) => Ok(()),
+            Ok(row_count) => Ok(row_count),
             Err(db_error) => { return Err(gen_dao_error("save_order order_state_history", db_error)); }
 
         }

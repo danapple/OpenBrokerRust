@@ -1,12 +1,12 @@
 use crate::access_control::AccessControl;
-use std::collections::HashMap;
-use std::string::ToString;
-
 use crate::constants::{ACCOUNT_UPDATE_QUEUE_NAME, APPLICATION_JSON};
+use actix_session::Session;
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::{web, HttpRequest, HttpResponse};
 use anyhow::Error;
-use log::{error, info};
+use log::{error, info, warn};
+use std::collections::HashMap;
+use std::string::ToString;
 use uuid::Uuid;
 
 use crate::entities::trading::OrderLeg;
@@ -25,14 +25,14 @@ use crate::{entities, exchange_interface};
 #[get("/accounts/{account_key}/orders")]
 pub async fn get_orders(dao: ThinData<Dao>,
                         access_control: ThinData<AccessControl>,
+                        session: Session,
                         path: Path<(String)>,
                         req: HttpRequest,
 ) -> HttpResponse {
     info!("get_orders called");
     let account_key = path.into_inner();
 
-    let api_key = base_api::get_api_key(req);
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -71,12 +71,12 @@ pub async fn get_orders(dao: ThinData<Dao>,
 #[get("/accounts/{account_key}/orders/{ext_order_id}")]
 pub async fn get_order(dao: ThinData<Dao>,
                        access_control: ThinData<AccessControl>,
+                       session: Session,
                        path: Path<(String, String)>,
                        req: HttpRequest,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
-    let api_key = base_api::get_api_key(req);
     info!("get_order called for ext_order_id {ext_order_id}");
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -115,14 +115,14 @@ pub async fn get_order(dao: ThinData<Dao>,
 #[post("/accounts/{account_key}/previewOrder")]
 pub async fn preview_order(dao: ThinData<Dao>,
                            access_control: ThinData<AccessControl>,
+                           session: Session,
                            instrument_manager: ThinData<InstrumentManager>,
                            vetter: ThinData<AllPassVetter>,
                            path: Path<(String)>,
                            req: HttpRequest,
                            rest_api_order: Json<Order>) -> HttpResponse {
     let account_key = path.into_inner();
-    let api_key = base_api::get_api_key(req);
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -149,6 +149,7 @@ pub async fn preview_order(dao: ThinData<Dao>,
 #[post("/accounts/{account_key}/orders")]
 pub async fn submit_order(dao: ThinData<Dao>,
                           access_control: ThinData<AccessControl>,
+                          session: Session,
                           instrument_manager: ThinData<InstrumentManager>,
                           vetter: ThinData<AllPassVetter>,
                           mut web_socket_server: ThinData<WebSocketServer>,
@@ -156,10 +157,16 @@ pub async fn submit_order(dao: ThinData<Dao>,
                           req: HttpRequest,
                           mut rest_api_order: Json<Order>) -> HttpResponse {
     info!("submit_order called");
+    match req.cookie("id") {
+        Some(cookie) => {
+            info!("id cookie = {}", cookie.value().to_string());
+        }
+        None =>  warn!("No id cookie")
+
+    };
     let account_key = path.into_inner();
 
-    let api_key = base_api::get_api_key(req);
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -295,14 +302,14 @@ pub async fn submit_order(dao: ThinData<Dao>,
 pub async fn cancel_order(dao: ThinData<Dao>,
                           mut web_socket_server: ThinData<WebSocketServer>,
                           access_control: ThinData<AccessControl>,
+                          session: Session,
                           instrument_manager: ThinData<InstrumentManager>,
                           path: Path<(String, String)>,
                           req: HttpRequest,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
 
-    let api_key = base_api::get_api_key(req);
     info!("cancel_order called for ext_order_id {ext_order_id}");
-    let allowed: bool = match access_control.is_allowed(&account_key, api_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());

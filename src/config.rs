@@ -10,6 +10,9 @@ pub struct BrokerConfig {
     pub log_level: String,  
     #[confik(from = DbConfig)]
     pub pg: deadpool_postgres::Config,
+    pub redis_addr: String,
+    pub password_key: String,
+    pub session_key: String,
 }
 
 #[derive(Debug, Deserialize)]

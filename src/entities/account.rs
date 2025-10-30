@@ -1,4 +1,5 @@
 use crate::rest_api::account::Privilege;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct Position {
@@ -12,7 +13,7 @@ pub struct Position {
     pub version_number: i64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Account {
     pub account_id: i64,
     pub account_key: String,
@@ -29,7 +30,7 @@ pub struct Balance {
     pub version_number: i64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Access {
     pub customer_id: i64,
     pub account_id: i64,

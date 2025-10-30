@@ -3,13 +3,12 @@ import getopt
 import stomper
 import sys
 import websocket
-
+from login import login
 
 accountKey='noaccount'
 
 def on_message(_, message):
     global accountKey
-    # print(message)
 
     frame = stomper.Frame()
     unpacked_msg = stomper.Frame.unpack(frame, message)
@@ -37,26 +36,10 @@ def main(argv):
         if opt == '--accountKey':
             accountKey=arg
 
-    websocket.enableTrace(True)
-
-    ws_app = websocket.WebSocketApp("ws://192.168.111.107:8080/ws", cookie = 'api_key=' + apiKey, on_open=on_open, on_message=on_message)
+    (url, addr, session) = login(apiKey)
+    ws_app = websocket.WebSocketApp("ws://" + addr + "/ws", cookie = 'id=' + session.cookies.get('id'), on_open=on_open, on_message=on_message)
 
     ws_app.run_forever(reconnect=1)
 
-
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-
-# ws.connect("ws://localhost:5213/ws")
-#
-# client_id = 1
-# sub = stom.javaper.subscribe("/topics/orders", client_id, ack='auto')
-# ws.send(sub)
-# ws.send("LTCBTC")
-# while True:
-#
-#     result = ws.recv()
-#     print ("Received '%s'" % result)
-#
-# ws.close()
