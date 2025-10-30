@@ -14,8 +14,7 @@ use std::collections::HashMap;
 pub async fn get_positions(dao: ThinData<Dao>,
                            access_control: ThinData<AccessControl>,
                            session: Session,
-                           account_key: Path<(String,)>,
-                           req: HttpRequest,) -> HttpResponse {
+                           account_key: Path<(String,)>,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
 
     let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
@@ -59,8 +58,7 @@ pub async fn get_positions(dao: ThinData<Dao>,
 pub async fn get_balance(dao: ThinData<Dao>,
                          access_control: ThinData<AccessControl>,
                          session: Session,
-                         account_key: Path<(String,)>,
-                         req: HttpRequest,) -> HttpResponse {
+                         account_key: Path<(String,)>,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
     let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
         Ok(allowed) => allowed,

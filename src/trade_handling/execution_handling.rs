@@ -1,12 +1,11 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
-use crate::entities::account::{Account, Position};
+use crate::entities::account::Position;
 use crate::exchange_interface::trading::Execution;
-use crate::instrument_manager::{Instrument, InstrumentManager};
+use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::time::current_time_millis;
 use crate::trade_handling::updates::AccountUpdate;
 use crate::websockets::server::WebSocketServer;
-use anyhow::Error;
 use log::{error, info};
 use std::ops::Neg;
 use std::sync::Arc;

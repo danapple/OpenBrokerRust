@@ -2,32 +2,18 @@ use actix_session::Session;
 use actix_web::http::header::{CONTENT_TYPE, LOCATION};
 use actix_web::web::ThinData;
 use actix_web::{web, HttpRequest, HttpResponse};
-use anyhow::Error;
 use argonautica::{Hasher, Verifier};
-use log::{debug, info, warn};
+use log::debug;
 use serde::Deserialize;
-use std::collections::HashMap;
 
 use crate::access_control::AccessControl;
 use crate::auth::templates::Welcome;
 use crate::config::BrokerConfig;
-use crate::constants::SESSION_USER_KEY;
-use crate::entities::account::{Access, Account};
-use crate::entities::customer::Customer;
-use crate::persistence::dao::{gen_dao_error, Dao, DaoError};
+use crate::persistence::dao::Dao;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
-
-#[derive(Debug, Deserialize)]
-pub struct PasswordData {
-    pub password: String,
-}
 
 #[get("/")]
 pub async fn welcome(
-    dao: ThinData<Dao>,
-    session: Session,
-    access_control: ThinData<AccessControl>,
-    req: HttpRequest,
 ) -> HttpResponse {
     let template = Welcome {  };
 
@@ -46,8 +32,6 @@ pub struct RegisterData {
 #[post("/register")]
 pub async fn register(
                       dao: ThinData<Dao>,
-                      session: Session,
-                      access_control: ThinData<AccessControl>,
                       config: ThinData<BrokerConfig>,
                       req: HttpRequest,
                       data: web::Form<RegisterData>,
@@ -139,7 +123,6 @@ pub async fn login(
     session: Session,
     access_control: ThinData<AccessControl>,
     config: ThinData<BrokerConfig>,
-    req: HttpRequest,
     data: web::Form<LoginData>
 ) -> HttpResponse {
     debug!("Logging in user {}", data.email);

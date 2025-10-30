@@ -1,5 +1,4 @@
-use futures_util::StreamExt;
-use log::{debug, error, info};
+use log::{debug, error};
 use serde;
 use serde::Serialize;
 use std::collections::HashMap;

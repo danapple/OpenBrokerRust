@@ -1,8 +1,6 @@
 use crate::constants::APPLICATION_JSON;
-use actix_web::Scope;
 use anyhow::anyhow;
-use log::{error, info};
-use serde::{Deserialize, Serialize};
+use log::error;
 use std::collections::HashMap;
 use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;

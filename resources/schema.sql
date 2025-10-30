@@ -1,5 +1,4 @@
 
-DROP TABLE IF EXISTS verification_codes;
 DROP TABLE IF EXISTS balance;
 DROP TABLE IF EXISTS position;
 
@@ -177,13 +176,6 @@ CREATE TABLE IF NOT EXISTS balance (
     cash REAL NOT NULL,
     updateTime BIGINT NOT NULL,
     versionNumber BIGINT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS verification_codes (
-    verificationCodeId BIGSERIAL PRIMARY KEY,
-    customerId BIGINT NOT NULL REFERENCES customer,
-    verificationCode VARCHAR NOT NULL,
-    createTime BIGINT NOT NULL,
 );
 
 GRANT SELECT ON TABLE customer, api_key, login_info, account, customer_account_relationship, privilege,

@@ -1,6 +1,5 @@
 use crate::access_control::AccessControl;
 use crate::constants::APPLICATION_JSON;
-use crate::persistence::dao::Dao;
 use crate::rest_api::account::Account;
 use actix_session::Session;
 use actix_web::web::ThinData;
@@ -8,8 +7,7 @@ use actix_web::HttpResponse;
 use log::error;
 
 #[get("/accounts")]
-pub async fn get_accounts(dao: ThinData<Dao>,
-                          access_control: ThinData<AccessControl>,
+pub async fn get_accounts(access_control: ThinData<AccessControl>,
                           session: Session) -> HttpResponse {
     let allowed_accounts_map = match access_control.get_allowed_accounts(&session) {
         Ok(allowed_accounts_map) => allowed_accounts_map,

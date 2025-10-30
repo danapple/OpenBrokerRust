@@ -91,9 +91,9 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
                             _ => {}
                         }
                     }
-                    StompMessage::Connected(ct) => {
+                    StompMessage::Connected(_) => {
                         debug!("Received expected Connected message on client");
-                        for (destination, func) in unboxed_handlers.iter() {
+                        for (destination, _) in unboxed_handlers.iter() {
                             debug!("Subscribing to {}", destination);
                             ws_stream.send(stomp::subscribe_message(subscription_id, destination)).await?;
                             subscription_id += 1

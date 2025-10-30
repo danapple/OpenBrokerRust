@@ -27,7 +27,6 @@ pub async fn get_orders(dao: ThinData<Dao>,
                         access_control: ThinData<AccessControl>,
                         session: Session,
                         path: Path<(String)>,
-                        req: HttpRequest,
 ) -> HttpResponse {
     info!("get_orders called");
     let account_key = path.into_inner();
@@ -72,8 +71,7 @@ pub async fn get_orders(dao: ThinData<Dao>,
 pub async fn get_order(dao: ThinData<Dao>,
                        access_control: ThinData<AccessControl>,
                        session: Session,
-                       path: Path<(String, String)>,
-                       req: HttpRequest,) -> HttpResponse {
+                       path: Path<(String, String)>,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
     info!("get_order called for ext_order_id {ext_order_id}");
     let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
@@ -119,7 +117,6 @@ pub async fn preview_order(dao: ThinData<Dao>,
                            instrument_manager: ThinData<InstrumentManager>,
                            vetter: ThinData<AllPassVetter>,
                            path: Path<(String)>,
-                           req: HttpRequest,
                            rest_api_order: Json<Order>) -> HttpResponse {
     let account_key = path.into_inner();
     let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
@@ -154,16 +151,9 @@ pub async fn submit_order(dao: ThinData<Dao>,
                           vetter: ThinData<AllPassVetter>,
                           mut web_socket_server: ThinData<WebSocketServer>,
                           path: Path<(String)>,
-                          req: HttpRequest,
                           mut rest_api_order: Json<Order>) -> HttpResponse {
     info!("submit_order called");
-    match req.cookie("id") {
-        Some(cookie) => {
-            info!("id cookie = {}", cookie.value().to_string());
-        }
-        None =>  warn!("No id cookie")
 
-    };
     let account_key = path.into_inner();
 
     let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
@@ -304,8 +294,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
                           access_control: ThinData<AccessControl>,
                           session: Session,
                           instrument_manager: ThinData<InstrumentManager>,
-                          path: Path<(String, String)>,
-                          req: HttpRequest,) -> HttpResponse {
+                          path: Path<(String, String)>,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
 
     info!("cancel_order called for ext_order_id {ext_order_id}");
