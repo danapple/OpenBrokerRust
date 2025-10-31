@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use strum::IntoEnumIterator;
 use tokio_postgres::Row;
-// 0.17.1
 
 impl<'b> DaoTransaction<'b> {
     pub async fn save_order(&self, mut order_state: OrderState) -> Result<OrderState, DaoError> {

@@ -1,11 +1,15 @@
-use crate::constants::{SESSION_ACCOUNT_MAP_KEY, SESSION_USER_KEY};
-use crate::entities::customer::Customer;
+use crate::entities::actor::Actor;
 use crate::persistence::dao::DaoTransaction;
 use crate::rest_api::account::{Account, Privilege};
+use crate::rest_api::actor::Power;
 use actix_session::Session;
 use anyhow::Error;
-use log::debug;
+use log::{debug, info};
 use std::collections::HashMap;
+
+const SESSION_ACTOR_KEY: &'static str = "actor";
+const SESSION_ACCOUNT_MAP_KEY: &'static str = "accounts";
+const SESSION_POWERS: &'static str = "powers";
 
 #[derive(Clone)]
 pub struct AccessControl {
@@ -17,23 +21,35 @@ impl AccessControl {
         }
     }
 
-    pub(crate) async fn set_current_user(&self, txn: &DaoTransaction<'_>, session: &Session, customer: &Customer) -> Result<(), Error> {
-        debug!("set_current_user using session {:p}", session);
+    pub(crate) async fn set_current_actor(&self, txn: &DaoTransaction<'_>, session: &Session, actor: &Actor) -> Result<(), Error> {
+        debug!("set_current_actor using session {:p}", session);
 
-        let account_map = match self.build_account_map(txn, customer).await {
+        let account_map = match self.build_account_map(txn, actor).await {
             Ok(account_map) => account_map,
             Err(build_error) => return Err(build_error),
         };
-        match session.insert(SESSION_USER_KEY, customer) {
+        let powers = match self.build_powers(txn, actor).await {
+            Ok(power_map) => power_map,
+            Err(build_error) => return Err(build_error),
+        };
+        info!("Got powers: {:?}", powers);
+        match session.insert(SESSION_ACTOR_KEY, actor) {
             Ok(_) => { },
-            Err(insert_error) => return Err(anyhow::anyhow!("set_current_user failed to insert user into session: {}", insert_error)),
+            Err(insert_error) => return Err(anyhow::anyhow!("set_current_actor failed to insert actor into session: {}", insert_error)),
         };
 
         match session.insert(SESSION_ACCOUNT_MAP_KEY, account_map) {
             Ok(_) => { },
             Err(insert_error) => {
                 session.clear();
-                return Err(anyhow::anyhow!("set_current_user failed to insert accesses into session: {}", insert_error))
+                return Err(anyhow::anyhow!("set_current_actor failed to insert account map into session: {}", insert_error))
+            },
+        };
+        match session.insert(SESSION_POWERS, powers) {
+            Ok(_) => { },
+            Err(insert_error) => {
+                session.clear();
+                return Err(anyhow::anyhow!("set_current_actor failed to insert power into session: {}", insert_error))
             },
         };
         Ok(())
@@ -71,13 +87,26 @@ impl AccessControl {
         self.is_allowed_from_map(&accounts, account_key, privilege)
     }
 
-    async fn build_account_map(&self, txn: &DaoTransaction<'_>, customer: &Customer) -> Result<HashMap<String, Account>, Error> {
-        let accesses = match txn.get_accesses_for_customer(customer.customer_id).await {
+    pub async fn is_admin_allowed(& self, session: &Session, power: Power) -> Result<bool, Error> {
+        debug!("is_admin_allowed checking with power {} against session", power);
+        let powers_option  = match session.get::<Vec<Power>>(SESSION_POWERS) {
+            Ok(powers) => powers,
+            Err(get_error) => return Err(anyhow::anyhow!("Could not get power: {}", get_error.to_string()))
+        };
+        let powers = match powers_option {
+            Some(powers) => powers,
+            None => return Err(anyhow::anyhow!("No powers available"))
+        };
+        Ok(powers.contains(&power))
+    }
+
+    async fn build_account_map(&self, txn: &DaoTransaction<'_>, actor: &Actor) -> Result<HashMap<String, Account>, Error> {
+        let accesses = match txn.get_accesses_for_actor(actor.actor_id).await {
             Ok(accesses) => accesses,
-            Err(dao_error) => return Err(anyhow::anyhow!("build_account_map failed to get accesses for customer: {}", dao_error)),
+            Err(dao_error) => return Err(anyhow::anyhow!("build_account_map failed to get accesses for actor: {}", dao_error)),
         };
 
-        let account_ids: Vec<i64> = accesses.iter().map(|access| access.account_id).collect();
+        let account_ids: Vec<i32> = accesses.iter().map(|access| access.account_id).collect();
 
         let accounts = match txn.get_accounts(account_ids).await {
             Ok(accounts) => accounts,
@@ -102,5 +131,13 @@ impl AccessControl {
             rest_api_account.privileges.push(access_db.privilege);
         }
         Ok(account_map)
+    }
+
+    async fn build_powers(&self, txn: &DaoTransaction<'_>, actor: &Actor) -> Result<Vec<Power>, Error> {
+        let powers = match txn.get_powers(actor.actor_id).await {
+            Ok(powers) => powers,
+            Err(dao_error) => return Err(anyhow::anyhow!("build_powers failed to get powers for actor: {}", dao_error)),
+        };
+        Ok(powers)
     }
 }

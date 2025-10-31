@@ -5,16 +5,16 @@ use std::str::FromStr;
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn get_accesses_for_customer(&self, customer_id: i64) -> Result<Vec<Access>, DaoError> {
+    pub async fn get_accesses_for_actor(&self, actor_id: i32) -> Result<Vec<Access>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ACCESS_QUERY);
-        query_string.push_str("WHERE customer.customerId = $1 ");
+        query_string.push_str("WHERE actor.actorId = $1 ");
         let res = match self.transaction.query(&query_string,
                                                &[
-                                                   &customer_id
+                                                   &actor_id
                                                ]).await {
             Ok(res) => res,
-            Err(db_error) => { return Err(gen_dao_error("get_accesses_for_customer", db_error)); }
+            Err(db_error) => { return Err(gen_dao_error("get_accesses_for_actor", db_error)); }
         };
         let mut accesses = Vec::new();
         for row in res {
@@ -40,7 +40,7 @@ impl<'b> DaoTransaction<'b> {
             }
         };
         Ok(Access {
-            customer_id: row.get("customerId"),
+            actor_id: row.get("actorId"),
             account_id: row.get("accountId"),
             nickname: row.get("nickname"),
             privilege,
@@ -49,10 +49,10 @@ impl<'b> DaoTransaction<'b> {
 }
 
 const ACCESS_QUERY: &str = "\
-SELECT customer.customerId, account.accountId, relation.nickname, access.privilege \
-FROM customer \
-JOIN customer_account_relationship relation on relation.customerId = customer.customerId \
+SELECT actor.actorId, account.accountId, relation.nickname, access.privilege \
+FROM actor \
+JOIN actor_account_relationship relation on relation.actorId = actor.actorId \
 JOIN account on account.accountId = relation.accountId \
-JOIN api_key on api_key.customerId = customer.customerId \
+JOIN api_key on api_key.actorId = actor.actorId \
 JOIN access on access.relationshipId = relation.relationshipId \
 ";

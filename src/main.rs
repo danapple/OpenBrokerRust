@@ -23,6 +23,7 @@ use log::info;
 mod constants;
 
 mod rest_api;
+mod admin_api;
 mod auth;
 mod exchange_interface;
 
@@ -153,6 +154,7 @@ async fn main() -> io::Result<()> {
             .service(account_pages::login)
             .service(account_pages::loginapi)
             .service(account_pages::logout)
+            .service(admin_api::offer_admin::create_offer)
             .service(ws_handler::ws_setup)
             .service(fs::Files::new("/app", "./resources/static/app")
                          .show_files_listing()

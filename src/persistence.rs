@@ -1,7 +1,10 @@
 pub mod orders;
 pub mod account;
 pub mod dao;
-pub mod customer;
+pub mod actor;
 mod access;
 mod balance;
 mod position;
+mod instrument;
+mod offer;
+pub mod admin;

@@ -1,3 +1,4 @@
 pub mod trading;
-pub mod customer;
+pub mod actor;
 pub mod account;
+pub mod offer;

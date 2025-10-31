@@ -26,7 +26,7 @@ pub struct RegisterData {
     pub offer_code: String,
     pub email_address: String,
     pub password: String,
-    pub customer_name: String,
+    pub actor_name: String,
 }
 
 #[post("/register")]
@@ -36,7 +36,7 @@ pub async fn register(
                       req: HttpRequest,
                       data: web::Form<RegisterData>,
                       ) -> HttpResponse {
-    debug!("Registering user {} with offer code {}", data.email_address, data.offer_code);
+    debug!("Registering actor {} with offer code {}", data.email_address, data.offer_code);
 
     let mut db_connection = match dao.get_connection().await {
         Ok(db_connection) => db_connection,
@@ -46,7 +46,7 @@ pub async fn register(
         Ok(txn) => txn,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let offer_code_valid = match txn.check_offer_code(data.offer_code.as_str()).await {
+    let offer_code_valid = match txn.check_offer(data.offer_code.as_str()).await {
         Ok(offer_code_valid) => offer_code_valid,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
@@ -57,7 +57,7 @@ pub async fn register(
         Ok(password_hash) => password_hash,
         Err(hash_error) => return log_text_error_and_return_500(format!("Could not hash password: {}", hash_error)),
     };
-    match txn.save_customer(data.email_address.as_str(), data.customer_name.as_str(), data.offer_code.as_str(), password_hash.as_str()).await {
+    match txn.save_actor(data.email_address.as_str(), data.actor_name.as_str(), data.offer_code.as_str(), password_hash.as_str()).await {
         Ok(_) => { },
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
@@ -93,19 +93,19 @@ pub async fn loginapi(
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
 
-    let customer_option = match txn.get_customer_by_api_key(&data.api_key).await {
-        Ok(customer_option) => customer_option,
+    let actor_option = match txn.get_actor_by_api_key(&data.api_key).await {
+        Ok(actor_option) => actor_option,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let customer = match customer_option {
-        Some(customer) => customer,
+    let actor = match actor_option {
+        Some(actor) => actor,
         None => return HttpResponse::Unauthorized().finish()
     };
-    match access_control.set_current_user(&txn, &session, &customer).await {
+    match access_control.set_current_actor(&txn, &session, &actor).await {
         Ok(_) => {}
         Err(set_error) => {
             session.clear();
-            return log_text_error_and_return_500(format!("Failed to setup API user {}: {}", &data.api_key, set_error));
+            return log_text_error_and_return_500(format!("Failed to setup API actor {}: {}", &data.api_key, set_error));
         }
     }
     HttpResponse::Ok().json("{}")
@@ -125,7 +125,7 @@ pub async fn login(
     config: ThinData<BrokerConfig>,
     data: web::Form<LoginData>
 ) -> HttpResponse {
-    debug!("Logging in user {}", data.email);
+    debug!("Logging in actor {}", data.email);
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
@@ -134,17 +134,17 @@ pub async fn login(
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let customer_password_hash_option = match txn.get_customer_password_hash(data.email.as_str()).await {
-        Ok(customer_password_hash_option) => customer_password_hash_option,
+    let actor_password_hash_option = match txn.get_actor_password_hash(data.email.as_str()).await {
+        Ok(actor_password_hash_option) => actor_password_hash_option,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let customer_password_hash = match customer_password_hash_option {
-        Some(customer_password_hash) => customer_password_hash,
+    let actor_password_hash = match actor_password_hash_option {
+        Some(actor_password_hash) => actor_password_hash,
         None =>
             return log_text_error_and_return_500(format!("Password could not be retrieved for {}", data.email)),
     };
 
-    let password_verified = match verify_password(config.password_key.as_str(), customer_password_hash.as_str(), data.password.as_str()) {
+    let password_verified = match verify_password(config.password_key.as_str(), actor_password_hash.as_str(), data.password.as_str()) {
         Ok(password_verified) => password_verified,
         Err(verification_error) =>
             return log_text_error_and_return_500(format!("Error verifying password for {}: {}", data.email, verification_error)),
@@ -153,20 +153,20 @@ pub async fn login(
         true => {}
         false => return HttpResponse::TemporaryRedirect().append_header((LOCATION, "/")).finish()
     };
-    let customer_option = match txn.get_customer(data.email.as_str()).await {
-        Ok(customer_option) => customer_option,
+    let actor_option = match txn.get_actor(data.email.as_str()).await {
+        Ok(actor_option) => actor_option,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let customer = match customer_option {
-        Some(customer) => customer,
+    let actor = match actor_option {
+        Some(actor) => actor,
         None => return HttpResponse::TemporaryRedirect().append_header((LOCATION, "/")).finish()
     };
 
-    match access_control.set_current_user(&txn, &session, &customer).await {
+    match access_control.set_current_actor(&txn, &session, &actor).await {
         Ok(_) => {}
         Err(set_error) => {
             session.clear();
-            return log_text_error_and_return_500(format!("Failed to setup user {}: {}", data.email, set_error));
+            return log_text_error_and_return_500(format!("Failed to setup actor {}: {}", data.email, set_error));
         }
     }
     HttpResponse::SeeOther().append_header((LOCATION, "/app")).finish()
