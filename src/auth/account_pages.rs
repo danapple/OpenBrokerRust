@@ -57,14 +57,20 @@ pub async fn register(
         Ok(password_hash) => password_hash,
         Err(hash_error) => return log_text_error_and_return_500(format!("Could not hash password: {}", hash_error)),
     };
-    match txn.save_actor(data.email_address.as_str(), data.actor_name.as_str(), data.offer_code.as_str(), password_hash.as_str()).await {
-        Ok(_) => { },
+    let actor = match txn.save_actor(data.email_address.as_str(), data.actor_name.as_str(), data.offer_code.as_str(), password_hash.as_str()).await {
+        Ok(actor) => actor,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
+    match txn.create_account_for_actor(&actor).await {
+        Ok(_) => {},
+        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
+    };
+
     match txn.commit().await {
         Ok(_) => {},
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
+
     match is_json_request(&req) {
         true => HttpResponse::NoContent().finish(),
         false => HttpResponse::SeeOther().append_header((LOCATION, "/")).finish(),

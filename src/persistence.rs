@@ -8,3 +8,4 @@ mod position;
 mod instrument;
 mod offer;
 pub mod admin;
+pub mod account_management;

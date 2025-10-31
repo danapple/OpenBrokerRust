@@ -235,11 +235,11 @@ CREATE TABLE IF NOT EXISTS balance (
     versionNumber BIGINT NOT NULL
 );
 
-GRANT SELECT ON TABLE actor, api_key, login_info, account, actor_account_relationship, privilege,
-    access, offer_code, login_info TO broker_user;
+GRANT SELECT ON TABLE privilege, power TO broker_user;
 
 GRANT SELECT, INSERT ON TABLE order_base, order_number_generator, order_leg, order_status, order_state,
-    order_state_history, trade, position, balance, actor, login_info, offer
+    order_state_history, trade, position, balance, actor, login_info, offer, account, balance,
+    actor_account_relationship, access
     TO broker_user;
 
 GRANT UPDATE ON TABLE public.order_state, public.position, public.balance, public.order_number_generator,

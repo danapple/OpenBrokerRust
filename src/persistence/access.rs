@@ -53,6 +53,5 @@ SELECT actor.actorId, account.accountId, relation.nickname, access.privilege \
 FROM actor \
 JOIN actor_account_relationship relation on relation.actorId = actor.actorId \
 JOIN account on account.accountId = relation.accountId \
-JOIN api_key on api_key.actorId = actor.actorId \
 JOIN access on access.relationshipId = relation.relationshipId \
 ";
