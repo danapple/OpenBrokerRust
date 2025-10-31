@@ -38,9 +38,10 @@ CREATE UNIQUE INDEX unq_exchange_instrument ON instrument (exchangeUrl, exchange
 
 
 CREATE TABLE IF NOT EXISTS offer_code (
-   offerCodeId BIGSERIAL PRIMARY KEY,
-   offerCode VARCHAR UNIQUE NOT NULL,
-   offerDescription VARCHAR NOT NULL
+    offerCodeId SERIAL PRIMARY KEY,
+    offerCode VARCHAR UNIQUE NOT NULL,
+    offerDescription VARCHAR NOT NULL,
+    expirationTime BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS customer (

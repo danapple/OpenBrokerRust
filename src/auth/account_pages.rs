@@ -51,7 +51,7 @@ pub async fn register(
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     if !offer_code_valid {
-        return HttpResponse::TemporaryRedirect().append_header((LOCATION, "/")).finish()
+        return HttpResponse::SeeOther().append_header((LOCATION, "/")).finish()
     }
     let password_hash = match hash_password(config.password_key.as_str(), data.password.as_str()) {
         Ok(password_hash) => password_hash,
@@ -67,7 +67,7 @@ pub async fn register(
     };
     match is_json_request(&req) {
         true => HttpResponse::NoContent().finish(),
-        false => HttpResponse::TemporaryRedirect().append_header((LOCATION, "/")).finish(),
+        false => HttpResponse::SeeOther().append_header((LOCATION, "/")).finish(),
     }
 }
 

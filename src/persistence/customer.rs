@@ -1,11 +1,17 @@
 use crate::entities::customer::Customer;
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
+use crate::time::current_time_millis;
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
     pub async fn check_offer_code(&self, offer_code: &str) -> Result<bool, DaoError> {
-        let res = match self.transaction.query("SELECT count(1) FROM offer_code WHERE offerCode = $1",
-                                                   &[&offer_code]).await {
+        let res = match self.transaction.query("SELECT offer_code FROM offer_code \
+                                        WHERE offerCode = $1 AND \
+                                        expirationTime > $2",
+                                               &[
+                                                   &offer_code,
+                                                   &current_time_millis()
+                                               ]).await {
             Ok(res) => res,
             Err(db_error) => { return Err(gen_dao_error("check_offer_code", db_error)); }
 
