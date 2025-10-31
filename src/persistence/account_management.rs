@@ -90,6 +90,20 @@ impl<'b> DaoTransaction<'b> {
             Err(db_error) => { return Err(gen_dao_error("create_account_for_actor access", db_error)); }
         };
 
+        match self.transaction.execute(
+            "INSERT INTO api_key \
+            (actorId, apiKey) \
+            VALUES ($1, $2) \
+            ",
+            &[
+                &actor.actor_id,
+                &&Uuid::new_v4().simple().to_string(),
+            ]
+        ).await {
+            Ok(x) => x,
+            Err(db_error) => { return Err(gen_dao_error("create_account_for_actor api_key", db_error)); }
+        };
+
         Ok(())
     }
 }
