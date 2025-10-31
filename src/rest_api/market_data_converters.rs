@@ -4,7 +4,7 @@ use crate::rest_api::market_data::{LastTrade, MarketDepth, PriceLevel};
 impl exchange_interface::market_data::LastTrade {
     pub fn to_rest_api_last_trade(&self, instrument_id: i64) -> LastTrade {
         LastTrade {
-            sequence_number: self.sequence_number,
+            version_number: self.sequence_number,
             instrument_id,
             create_time: self.create_time,
             price: self.price,
@@ -19,7 +19,7 @@ impl exchange_interface::market_data::MarketDepth {
         let sells = self.sells.iter().map(|sell| { sell.to_rest_api_price_level() } ).collect();
 
         MarketDepth {
-            sequence_number: self.sequence_number,
+            version_number: self.sequence_number,
             instrument_id,
             create_time: self.create_time,
             buys,
