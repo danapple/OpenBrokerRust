@@ -22,7 +22,7 @@ stompClient.onConnect = (frame) => {
 };
 
 function subscribe(destination, func) {
-    console.log('Subscribing: ' + destination);
+  //  console.log('Subscribing: ' + destination);
     subscriptions[destination] = func;
     if (!connected) {
         return;
@@ -36,7 +36,7 @@ function subscribeAccount(accountKey, func) {
 }
 
 function sendsubscribe(destination, func) {
-    console.log('sendsubscribe to ' + destination);
+  //  console.log('sendsubscribe to ' + destination);
     stompClient.subscribe(destination, func);
     if (destination.startsWith('/accounts/')) {
         stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "balance"})});
@@ -71,13 +71,13 @@ function getInstrumentDescription(instrument_id) {
     if (!instrument) {
         return "Id: " + instrument_id;
     }
-    console.log("Instrument description for display" + instrument.description);
+  //  console.log("Instrument description for display" + instrument.description);
     return instrument.description;
 }
 
 function handleDepth(stompMessage) {
     let message = stompMessage.body;
-    console.log('Got depth message: ' + message);
+   // console.log('Got depth message: ' + message);
     let depth = JSON.parse(message);
     let description = getInstrumentDescription(depth.instrument_id);
     $("#markets_body").append(
@@ -90,7 +90,7 @@ function handleDepth(stompMessage) {
 function handleLastTrade(stompMessage) {
     let message = stompMessage.body;
 
-    console.log('Got last trade message: ' + message);
+  //  console.log('Got last trade message: ' + message);
     let last_trade = JSON.parse(message);
     let description = getInstrumentDescription(last_trade.instrument_id);
 
@@ -101,27 +101,16 @@ function handleLastTrade(stompMessage) {
         + "</tr>");
 }
 
-function handleUpdate(stompMessage) {
-    let message = stompMessage.body;
-
-    // console.log('Got message: ' + message);
-    let account_update = JSON.parse(message);
-    // console.log('Parsed: ' + account_update);
-
-    balance = account_update.balance;
-    position = account_update.position;
-    order_state = account_update.order_state;
-    //
-    // console.log('Got position: ' + position);
-    // console.log('Got balance: ' + balance);
-    // console.log('Got order_state: ' + order_state);
-
+function handleBalance(balance) {
     if (balance !== undefined && balance !== null) {
         $("#balances_body").append(
             "<tr>"
             + "<td>" + balance.cash + "</td>"
             + "</tr>");
     }
+}
+
+function handlePosition(position) {
     if (position !== undefined && position !== null) {
         $("#positions_body").append(
             "<tr>"
@@ -132,24 +121,47 @@ function handleUpdate(stompMessage) {
             + "<td>  <button id=\"close\" class=\"btn btn-default\" type=\"submit\">Close</button>\n </td>"
             + "</tr>");
     }
-    if (order_state !== undefined && order_state !== null) {
+}
+
+function handleOrderState(orderState) {
+    if (orderState !== undefined && orderState !== null) {
+        let description = "";
+        for (const [_, leg] of Object.entries(orderState.order.legs)) {
+            if (description.length > 0) {
+                description += "/";
+            }
+            description += getInstrumentDescription(leg.instrument_id);
+        }
+
         $("#orders_body").append(
             "<tr>"
-            + "<td>"+ order_state.order.order_number + "</td>"
-            + "<td>" + order_state.order_status + "</td>"
-            + "<td>"+ order_state.order.quantity + "</td>"
-            + "<td>"+ order_state.order.price + "</td>"
+            + "<td>"+ orderState.order.order_number + "</td>"
+            + "<td>" + description + "</td>"
+            + "<td>" + orderState.order_status + "</td>"
+            + "<td>"+ orderState.order.quantity + "</td>"
+            + "<td>"+ orderState.order.price + "</td>"
             + "<td>  <button id=\"cancel\" class=\"btn btn-default\" type=\"submit\">Cancel</button>\n </td>"
             + "</td>");
     }
 }
+function handleUpdate(stompMessage) {
+    let message = stompMessage.body;
+    let account_update = JSON.parse(message);
+
+    balance = account_update.balance;
+    position = account_update.position;
+    orderState = account_update.order_state;
+    handleBalance(balance);
+    handlePosition(position);
+    handleOrderState(orderState);
+}
 
 function processAccounts(account_data) {
-    console.log('Got accounts:' + JSON.stringify(account_data));
+   // console.log('Got accounts:' + JSON.stringify(account_data));
     $("#account-data").show();
 
     for (account of account_data) {
-        console.log('account: ' + JSON.stringify(account));
+    //    console.log('account: ' + JSON.stringify(account));
         $("#accounts_body").append(
             "<tr>"
             + "<td>"+ account.account_number + "</td>"
@@ -160,11 +172,11 @@ function processAccounts(account_data) {
 }
 
 function processInstruments(instrument_data) {
-    console.log('Got instruments:' + JSON.stringify(instrument_data));
+ //   console.log('Got instruments:' + JSON.stringify(instrument_data));
     instruments = instrument_data;
 
     Object.values(instruments).forEach((instrument) => {
-        console.log('instrument: ' + JSON.stringify(instrument));
+  //      console.log('instrument: ' + JSON.stringify(instrument));
         subscribe('/markets/' + instrument.instrument_id + '/depth', handleDepth);
         subscribe('/markets/' + instrument.instrument_id + '/last_trade', handleLastTrade);
     })
