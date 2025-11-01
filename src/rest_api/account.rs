@@ -43,7 +43,7 @@ pub struct Account {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Position {
     pub account_key: String,
-    pub instrument_id: i64,
+    pub instrument_key: String,
     pub quantity: i32,
     pub cost: f32,
     pub version_number: i64,

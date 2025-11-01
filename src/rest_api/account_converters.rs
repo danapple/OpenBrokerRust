@@ -1,4 +1,5 @@
 use crate::entities;
+use crate::instrument_manager::InstrumentManager;
 use crate::rest_api::account::{Account, Balance, Position};
 
 impl entities::account::Account {
@@ -14,10 +15,10 @@ impl entities::account::Account {
 }
 
 impl entities::account::Position {
-    pub fn to_rest_api_position(&self, account_key: &str) -> Position {
+    pub fn to_rest_api_position(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Position {
         Position {
             account_key: account_key.to_string(),
-            instrument_id: self.instrument_id,
+            instrument_key: instrument_manager.get_instrument(self.instrument_id).unwrap().unwrap().instrument_key,
             quantity: self.quantity,
             cost: self.cost,
             closed_gain: self.closed_gain,

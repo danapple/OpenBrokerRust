@@ -1,9 +1,11 @@
+use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::DaoTransaction;
 use crate::trade_handling::updates::AccountUpdate;
+use actix_web::web::ThinData;
 use log::error;
 use tokio::sync::mpsc::UnboundedSender;
 
-pub async fn send_positions(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
+pub async fn send_positions(txn: DaoTransaction<'_>, instrument_manager: &InstrumentManager, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
     let positions = match txn.get_positions(account_key).await {
         Ok(x) => x,
         Err(y) => {
@@ -13,7 +15,7 @@ pub async fn send_positions(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<cr
     };
     for position in positions.values() {
         let account_update = AccountUpdate {
-            position: Some(position.to_rest_api_position(account_key)),
+            position: Some(position.to_rest_api_position(account_key, &instrument_manager)),
             balance: None,
             trade: None,
             order_state: None,
@@ -73,7 +75,7 @@ pub async fn send_balance(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crat
     };
 }
 
-pub async fn send_orders(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
+pub async fn send_orders(txn: DaoTransaction<'_>, instrument_manager: &InstrumentManager, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
     let order_states = match txn.get_orders(&account_key).await {
         Ok(x) => x,
         Err(y) => {
@@ -94,7 +96,7 @@ pub async fn send_orders(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate
             position: None,
             balance: None,
             trade: None,
-            order_state: Some(order_state.to_rest_api_order_state(account_key)),
+            order_state: Some(order_state.to_rest_api_order_state(account_key, &instrument_manager)),
         };
         let body = match serde_json::to_string(&account_update) {
             Ok(body) => body,

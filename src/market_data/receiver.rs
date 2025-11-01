@@ -4,7 +4,7 @@ use crate::persistence::dao::Dao;
 use crate::websockets::server::WebSocketServer;
 use log::{debug, info, warn};
 
-pub fn handle_depth(dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, depth: MarketDepth) {
+pub fn handle_depth(web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, depth: MarketDepth) {
     debug!("Depth: {:?}", depth);
     let (destination, instrument_id) = match compute_destination(instrument_manager, "depth", depth.instrument_id)
     {
@@ -14,10 +14,10 @@ pub fn handle_depth(dao: &Dao, web_socket_server: &WebSocketServer, instrument_m
             return;
         }
     };
-    web_socket_server.clone().send_retained_message(destination, &depth.to_rest_api_position(instrument_id));
+    web_socket_server.clone().send_retained_message(destination, &depth.to_rest_api_position(instrument_manager));
 }
 
-pub fn handle_last_trade(dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, last_trade: LastTrade) {
+pub fn handle_last_trade(web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, last_trade: LastTrade) {
     debug!("Last Trade: {:?}", last_trade);
     let (destination, instrument_id) = match compute_destination(instrument_manager, "last_trade", last_trade.instrument_id)
     {
@@ -27,7 +27,7 @@ pub fn handle_last_trade(dao: &Dao, web_socket_server: &WebSocketServer, instrum
             return;
         }
     };
-    web_socket_server.clone().send_retained_message(destination, &last_trade.to_rest_api_last_trade(instrument_id));
+    web_socket_server.clone().send_retained_message(destination, &last_trade.to_rest_api_last_trade(instrument_manager));
 }
 
 fn compute_destination(instrument_manager: &InstrumentManager, scope: &str, exchange_instrument_id: i64) -> Result<(String, i64), anyhow::Error> {
@@ -39,7 +39,6 @@ fn compute_destination(instrument_manager: &InstrumentManager, scope: &str, exch
         Some(instrument) => instrument,
         None => return Err(anyhow::anyhow!("Could not find instrument exchange instrument_id {}", exchange_instrument_id))
     };
-    let instrument_id = instrument.instrument_id;
-    let destination = format!("/markets/{}/{}", instrument_id, scope);
-    Ok((destination, instrument_id))
+    let destination = format!("/markets/{}/{}", instrument.instrument_key, scope);
+    Ok((destination, instrument.instrument_id))
 }

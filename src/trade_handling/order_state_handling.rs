@@ -1,19 +1,21 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
 use crate::exchange_interface::trading::OrderState;
+use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::trade_handling::updates::AccountUpdate;
 use crate::websockets::server::WebSocketServer;
+use actix_web::web::ThinData;
 use log::{error, info};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, order_state: OrderState) {
+pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, order_state: OrderState) {
     info!("Order state: {:?}", order_state);
-    tokio::spawn(update_order_state(mutex.clone(), web_socket_server.clone(), dao.clone(), order_state));
+    tokio::spawn(update_order_state(mutex.clone(), web_socket_server.clone(), dao.clone(), instrument_manager.clone(), order_state));
 }
 
-async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, order_state: OrderState) {
+async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, instrument_manager: InstrumentManager, order_state: OrderState) {
     let _lock = mutex.lock().await;
     let mut db_connection = match dao.get_connection().await {
         Ok(db_connection) => db_connection,
@@ -71,7 +73,7 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSoc
                         balance: None,
                         position: None,
                         trade: None,
-                        order_state: Some(db_order_state.to_rest_api_order_state(account.account_key.as_str())),
+                        order_state: Some(db_order_state.to_rest_api_order_state(account.account_key.as_str(), &instrument_manager)),
                     };
                     web_socket_server.send_account_message(account.account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &account_update);
                 }

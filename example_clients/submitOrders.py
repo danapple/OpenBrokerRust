@@ -10,10 +10,10 @@ def main(argv):
     api_key=''
     price=''
     quantity=''
-    instrumentId=''
+    instrument_key=''
     client_order_id=''
     try:
-       opts, args = getopt.getopt(argv, "", ["instrumentId=","price=","quantity=","accountKey="])
+       opts, args = getopt.getopt(argv, "", ["instrumentKey=","price=","quantity=","accountKey="])
     except getopt.GetoptError:
        print ('oops')
        sys.exit(2)
@@ -22,8 +22,8 @@ def main(argv):
              price = arg
          if opt == '--quantity':
              quantity=arg
-         if opt == '--instrumentId':
-             instrumentId=arg
+         if opt == '--instrumentKey':
+             instrument_key=arg
          if opt == '--accountKey':
              accountKey=arg
 
@@ -31,7 +31,7 @@ def main(argv):
     req = { "price": float(price), \
                            "quantity": int(quantity),
                            "legs": [ \
-                               {"ratio": 1, "instrument_id": instrumentId} \
+                               {"ratio": 1, "instrument_key": instrument_key} \
                                ]\
             }
                            

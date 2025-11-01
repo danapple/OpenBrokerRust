@@ -120,7 +120,7 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
             let new_position = Position {
                 position_id: 0,
                 account_id: account.account_id,
-                instrument_id: execution.instrument_id,
+                instrument_id: instrument.instrument_id,
                 quantity: 0,
                 cost: 0.0,
                 closed_gain: 0.0,
@@ -141,7 +141,7 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
     match txn.update_position(&mut position).await {
         Ok(_) => {},
         Err(err) => {
-            error!("Unable to update_balance: {}", err);
+            error!("Unable to update_position: {}", err);
             return;
         },
     };
@@ -155,7 +155,7 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
     };
     let account_update = AccountUpdate {
         balance: Some(balance.to_rest_api_balance(account.account_key.as_str())),
-        position: Some(position.to_rest_api_position(account.account_key.as_str())),
+        position: Some(position.to_rest_api_position(account.account_key.as_str(), &instrument_manager)),
         trade: None,
         order_state: None,
     };

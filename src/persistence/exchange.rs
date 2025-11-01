@@ -69,10 +69,11 @@ impl<'b> DaoTransaction<'b> {
     pub async fn save_instrument(&self, instrument: &mut Instrument) -> Result<(), DaoError> {
         let row = match self.transaction.query_one(
             "INSERT INTO instrument \
-            (exchangeId, exchangeInstrumentId, status, symbol, assetClass, description, expirationTime) \
-            VALUES ($1, $2, $3, $4, $5, $6, $7) \
+            (instrumentKey, exchangeId, exchangeInstrumentId, status, symbol, assetClass, description, expirationTime) \
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
             RETURNING instrumentId",
-            &[&instrument.exchange_id,
+            &[&instrument.instrument_key,
+                &instrument.exchange_id,
                 &instrument.exchange_instrument_id,
                 &instrument.status.to_string(),
                 &instrument.symbol,
@@ -155,6 +156,7 @@ fn convert_row_to_instrument(row: &Row) -> Result<Instrument, DaoError> {
 
     Ok(Instrument {
         instrument_id: row.get("instrumentId"),
+        instrument_key: row.get("instrumentKey"),
         exchange_id: row.get("exchangeId"),
         exchange_instrument_id: row.get("exchangeInstrumentId"),
         status: instrument_status,
@@ -170,7 +172,7 @@ websocketUrl, description, apiKey \
 FROM exchange \
 ";
 
-const INSTRUMENT_QUERY: &str = "SELECT instrumentId, exchangeId, exchangeInstrumentId, \
+const INSTRUMENT_QUERY: &str = "SELECT instrumentId, instrumentKey, exchangeId, exchangeInstrumentId, \
 status, symbol, assetClass, description, expirationTime \
 FROM instrument \
 ";

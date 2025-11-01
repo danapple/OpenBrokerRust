@@ -21,6 +21,7 @@ use crate::{entities, exchange_interface};
 
 #[get("/accounts/{account_key}/orders")]
 pub async fn get_orders(dao: ThinData<Dao>,
+                        instrument_manager: ThinData<InstrumentManager>,
                         access_control: ThinData<AccessControl>,
                         session: Session,
                         path: Path<(String)>,
@@ -57,7 +58,8 @@ pub async fn get_orders(dao: ThinData<Dao>,
 
     let mut api_order_states: HashMap<String, OrderState> = HashMap::new();
     for order_state in order_states {
-        api_order_states.insert(order_state.0, order_state.1.to_rest_api_order_state(account_key.as_str()));
+        api_order_states.insert(order_state.0, order_state.1.to_rest_api_order_state(account_key.as_str(),
+                                                                                     &instrument_manager));
     }
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
@@ -66,6 +68,7 @@ pub async fn get_orders(dao: ThinData<Dao>,
 
 #[get("/accounts/{account_key}/orders/{ext_order_id}")]
 pub async fn get_order(dao: ThinData<Dao>,
+                       instrument_manager: ThinData<InstrumentManager>,
                        access_control: ThinData<AccessControl>,
                        session: Session,
                        path: Path<(String, String)>,) -> HttpResponse {
@@ -101,7 +104,7 @@ pub async fn get_order(dao: ThinData<Dao>,
     match order_state_option {
         Some(x) => HttpResponse::Ok()
             .content_type(APPLICATION_JSON)
-            .json(x.to_rest_api_order_state(account_key.as_str())),
+            .json(x.to_rest_api_order_state(account_key.as_str(), &instrument_manager)),
         None => HttpResponse::NotFound().finish()
     }
 }
@@ -142,9 +145,9 @@ pub async fn preview_order(dao: ThinData<Dao>,
 
 #[post("/accounts/{account_key}/orders")]
 pub async fn submit_order(dao: ThinData<Dao>,
+                          instrument_manager: ThinData<InstrumentManager>,
                           access_control: ThinData<AccessControl>,
                           session: Session,
-                          instrument_manager: ThinData<InstrumentManager>,
                           vetter: ThinData<AllPassVetter>,
                           mut web_socket_server: ThinData<WebSocketServer>,
                           path: Path<(String)>,
@@ -178,12 +181,12 @@ pub async fn submit_order(dao: ThinData<Dao>,
         return HttpResponse::PreconditionFailed().json(rest_api_vetting_result);
     }
 
-    let first_leg_instrument_id = match rest_api_order.legs.first() {
-        Some(leg0) => leg0.instrument_id,
+    let first_leg_instrument_key = match rest_api_order.legs.first() {
+        Some(leg0) => &leg0.instrument_key,
         None => return HttpResponse::PreconditionFailed().json("no order legs")
     };
 
-    let instrument_result = instrument_manager.get_instrument(first_leg_instrument_id);
+    let instrument_result = instrument_manager.get_instrument_by_key(first_leg_instrument_key);
     let instrument_option = match instrument_result {
         Ok(instrument_option) => instrument_option,
         Err(instrument_error) => {
@@ -195,7 +198,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let instrument = match instrument_option {
         Some(instrument) => instrument,
         None => {
-            return HttpResponse::PreconditionFailed().json(format!("instrument {} is unknown", first_leg_instrument_id))
+            return HttpResponse::PreconditionFailed().json(format!("instrument {} is unknown", first_leg_instrument_key))
         }
     };
 
@@ -221,7 +224,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(exchange_order) => exchange_order,
         Err(err) => return log_text_error_and_return_500(err.to_string())
     };
-    let entities_order_result = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone());
+    let entities_order_result = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone(), &instrument_manager);
     let entities_order = match entities_order_result {
         Ok(entities_order) => entities_order,
         Err(err) => return log_text_error_and_return_500(err.to_string())
@@ -250,7 +253,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    send_order_state(&mut web_socket_server, &account_key, &order_state);
+    send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state);
 
     let exchange_client = match instrument_manager.get_exchange_client_for_instrument(&instrument) {
         Ok(exchange_client) => exchange_client,
@@ -285,12 +288,12 @@ pub async fn submit_order(dao: ThinData<Dao>,
             Ok(x) => x,
             Err(dao_error) => return log_dao_error_and_return_500(dao_error),
         };
-        send_order_state(&mut web_socket_server, &account_key, &order_state);
+        send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state);
     }
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
-        .json(order_state.to_rest_api_order_state(account_key.as_str()))
+        .json(order_state.to_rest_api_order_state(account_key.as_str(), &instrument_manager))
 }
 
 #[delete("/accounts/{account_key}/orders/{ext_order_id}")]
@@ -345,7 +348,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    send_order_state(&mut web_socket_server, &account_key, &order_state);
+    send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state);
 
     let first_leg_instrument_id = match order_state.order.legs.first() {
         Some(leg0) => leg0.instrument_id,
@@ -398,9 +401,9 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    send_order_state(&mut web_socket_server, &account_key, &order_state);
+    send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state);
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
-        .json(order_state.to_rest_api_order_state(account_key.as_str()))
+        .json(order_state.to_rest_api_order_state(account_key.as_str(), &instrument_manager))
 }

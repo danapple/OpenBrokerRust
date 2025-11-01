@@ -1,4 +1,5 @@
 use crate::access_control::AccessControl;
+use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::account::{Account, Privilege};
 use crate::rest_api::base_api;
@@ -30,6 +31,7 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn ws_setup(
     req: HttpRequest,
     dao: ThinData<Dao>,
+    instrument_manager: ThinData<InstrumentManager>,
     session: actix_session::Session,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
@@ -53,6 +55,7 @@ pub async fn ws_setup(
 
     spawn_local(ws_handler(
         dao,
+        instrument_manager,
         allowed_accounts,
         ws_session,
         web_socket_server,
@@ -65,13 +68,14 @@ pub async fn ws_setup(
 
 async fn ws_handler(
     dao: ThinData<Dao>,
+    instrument_manager: ThinData<InstrumentManager>,
     allowed_accounts: HashMap<String, Account>,
     mut ws_session: Session,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     msg_stream: actix_ws::MessageStream,
 ) {
-    let mut ws_handler_obj = WsHandler::new(dao, web_socket_server, access_control, allowed_accounts, msg_stream);
+    let mut ws_handler_obj = WsHandler::new(dao, instrument_manager, web_socket_server, access_control, allowed_accounts, msg_stream);
     ws_handler_obj.start(&mut ws_session).await;
     info!("Websocket closing");
     match ws_session.close(None).await {
@@ -85,6 +89,7 @@ async fn ws_handler(
 
 struct WsHandler {
     dao: ThinData<Dao>,
+    instrument_manager: ThinData<InstrumentManager>,
     web_socket_server: ThinData<WebSocketServer>,
     access_control: ThinData<AccessControl>,
     allowed_accounts: HashMap<String, Account>,
@@ -94,12 +99,14 @@ struct WsHandler {
 
 impl WsHandler {
     fn new(dao: ThinData<Dao>,
+           instrument_manager: ThinData<InstrumentManager>,
            web_socket_server: ThinData<WebSocketServer>,
            access_control: ThinData<AccessControl>,
            allowed_accounts: HashMap<String, Account>,
            in_msg_stream: actix_ws::MessageStream) -> WsHandler {
         WsHandler {
             dao,
+            instrument_manager,
             web_socket_server,
             access_control,
             allowed_accounts,
@@ -275,6 +282,7 @@ impl WsHandler {
         }
 
         let dao_clone = self.dao.clone();
+        let instrument_manager_clone = self.instrument_manager.clone();
 
         tokio::spawn(async move
             {
@@ -295,7 +303,7 @@ impl WsHandler {
                 };
                 match send_request.request {
                     Request::GET => {
-                        send_get(dao_clone, conn_tx, &content.destination, &account_key, send_request.scope).await
+                        send_get(dao_clone, instrument_manager_clone, conn_tx, &content.destination, &account_key, send_request.scope).await
                     }
                 };
             }
@@ -428,7 +436,7 @@ fn extract_account_key(destination: &String) -> Result<String, anyhow::Error> {
     Ok(account_key)
 }
 
-async fn send_get(dao: ThinData<Dao>, conn_tx: UnboundedSender<QueueItem>, destination: &String, account_key: &String, scope: Scope) {
+async fn send_get(dao: ThinData<Dao>, instrument_manager: ThinData<InstrumentManager>, conn_tx: UnboundedSender<QueueItem>, destination: &String, account_key: &String, scope: Scope) {
     let mut db_connection = match dao.get_connection().await {
         Ok(db_connection) => db_connection,
         Err(dao_error) => {
@@ -448,10 +456,10 @@ async fn send_get(dao: ThinData<Dao>, conn_tx: UnboundedSender<QueueItem>, desti
             send_balance(txn, conn_tx, destination, account_key).await;
         }
         Scope::Positions => {
-            send_positions(txn, conn_tx, destination, account_key).await;
+            send_positions(txn, &instrument_manager, conn_tx, destination, account_key).await;
         }
         Scope::Orders => {
-            send_orders(txn, conn_tx, destination, account_key).await;
+            send_orders(txn, &instrument_manager, conn_tx, destination, account_key).await;
         }
     };
 }

@@ -16,6 +16,7 @@ pub struct InstrumentManager {
     dao: Dao,
     web_socket_server: WebSocketServer,
     instruments: Arc<RwLock<HashMap<i64, Instrument>>>,
+    instruments_by_key: Arc<RwLock<HashMap<String, Instrument>>>,
     instruments_by_exchange_instrument_id: Arc<RwLock<HashMap<i64, Instrument>>>,
     exchanges_holders_by_id: Arc<RwLock<HashMap<i32, Arc<ExchangeHolder>>>>,
 }
@@ -32,6 +33,7 @@ impl InstrumentManager {
             dao,
             web_socket_server,
             instruments: Arc::new(RwLock::new(HashMap::new())),
+            instruments_by_key: Arc::new(RwLock::new(HashMap::new())),
             instruments_by_exchange_instrument_id: Arc::new(RwLock::new(HashMap::new())),
             exchanges_holders_by_id: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -150,6 +152,12 @@ impl InstrumentManager {
         };
         writable_instruments.insert(instrument.instrument_id, instrument.clone());
 
+        let mut writable_instruments_by_key = match self.instruments_by_key.write() {
+            Ok(writable_instruments_by_key) => writable_instruments_by_key,
+            Err(writable_error) => return Err(anyhow::anyhow!("Unable to get write access to instruments: {}", writable_error)),
+        };
+        writable_instruments_by_key.insert(instrument.instrument_key.clone(), instrument.clone());
+
         let mut writable_instruments_by_exchange_instrument_id = match self.instruments_by_exchange_instrument_id.write() {
             Ok(writable_instruments_by_exchange_instrument_id) => writable_instruments_by_exchange_instrument_id,
             Err(writable_error) => return Err(anyhow::anyhow!("Unable to get write access to instruments_by_exchange_instrument_id: {}", writable_error)),
@@ -169,10 +177,21 @@ impl InstrumentManager {
         }
     }
 
+    pub fn get_instrument_by_key(&self, instrument_key: &str) -> Result<Option<Instrument>, Error> {
+        let instruments_by_key = match self.instruments_by_key.read() {
+            Ok(instruments_by_key) => instruments_by_key,
+            Err(writable_error) => return Err(anyhow::anyhow!("get_instrument unable to get read access to instruments_by_key: {}", writable_error)),
+        };
+        match instruments_by_key.get(instrument_key) {
+            Some(instrument) => Ok(Some(instrument.clone())),
+            None => Ok(None)
+        }
+    }
+
     pub fn get_instrument_by_exchange_instrument_id(&self, exchange_instrument_id: i64) -> Result<Option<Instrument>, anyhow::Error> {
         let instruments = match self.instruments_by_exchange_instrument_id.read() {
             Ok(x) => x,
-            Err(writable_error) => return Err(anyhow::anyhow!("get_instrument_by_exchange_instrument_id unable to get read access to instruments: {}", writable_error)),
+            Err(writable_error) => return Err(anyhow::anyhow!("get_instrument_by_exchange_instrument_id unable to get read access to instruments_by_exchange_instrument_id: {}", writable_error)),
         };
         match instruments.get(&exchange_instrument_id) {
             Some(instrument) => Ok(Some(instrument.clone())),

@@ -34,7 +34,7 @@ pub async fn get_instruments(access_control: ThinData<AccessControl>,
             Ok(exchange) => exchange,
             Err(get_error) => return log_text_error_and_return_500(get_error.to_string()),
         };
-        rest_api_instruments.insert(instrument.instrument_id, instrument.to_rest_api_instrument(&exchange));
+        rest_api_instruments.insert(instrument.instrument_key.clone(), instrument.to_rest_api_instrument(&exchange));
     }
 
     HttpResponse::Ok()

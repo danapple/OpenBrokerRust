@@ -86,8 +86,7 @@ pub struct Order {
 #[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
 pub struct OrderLeg {
-    //#[serde(deserialize_with = "as_i64")]
-    pub instrument_id: i64,
+    pub instrument_key: String,
     pub ratio: i32,
 }
 

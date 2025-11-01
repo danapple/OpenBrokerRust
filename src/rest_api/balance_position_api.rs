@@ -1,5 +1,6 @@
 use crate::access_control::AccessControl;
 use crate::constants::APPLICATION_JSON;
+use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api;
@@ -12,6 +13,7 @@ use std::collections::HashMap;
 
 #[get("/accounts/{account_key}/positions")]
 pub async fn get_positions(dao: ThinData<Dao>,
+                           instrument_manager: ThinData<InstrumentManager>,
                            access_control: ThinData<AccessControl>,
                            session: Session,
                            account_key: Path<(String,)>,) -> HttpResponse {
@@ -46,7 +48,7 @@ pub async fn get_positions(dao: ThinData<Dao>,
     };
     let mut rest_api_positions = HashMap::new();
     for position in positions.values() {
-        rest_api_positions.insert(position.position_id, position.to_rest_api_position(account_key));
+        rest_api_positions.insert(position.position_id, position.to_rest_api_position(account_key, &instrument_manager));
     }
 
     HttpResponse::Ok()

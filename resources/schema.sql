@@ -72,6 +72,7 @@ VALUES
 
 CREATE TABLE IF NOT EXISTS instrument (
     instrumentId BIGSERIAL PRIMARY KEY,
+    instrumentKey VARCHAR UNIQUE NOT NULL,
     exchangeId INT REFERENCES exchange,
     exchangeInstrumentId BIGINT NOT NULL,
     status VARCHAR NOT NULL REFERENCES instrument_status,
@@ -109,7 +110,7 @@ CREATE TABLE IF NOT EXISTS api_key (
 
 CREATE TABLE IF NOT EXISTS account (
     accountId SERIAL PRIMARY KEY,
-    accountKey VARCHAR NOT NULL,
+    accountKey VARCHAR UNIQUE NOT NULL,
     accountNumber VARCHAR UNIQUE NOT NULL,
     accountName VARCHAR NOT NULL
 );

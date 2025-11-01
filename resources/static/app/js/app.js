@@ -66,20 +66,20 @@ function connect() {
     getInstruments();
 }
 
-function getInstrumentDescription(instrument_id) {
-    var instrument = instruments[instrument_id];
+function getInstrumentDescription(instrument_key) {
+    var instrument = instruments[instrument_key];
     if (!instrument) {
-        return "Id: " + instrument_id;
+        return "Id: " + instrument_key;
     }
   //  console.log("Instrument description for display" + instrument.description);
-    return instrument.description;
+    return instrument.symbol + "(" + instrument.description + ")";
 }
 
 function handleDepth(stompMessage) {
     let message = stompMessage.body;
    // console.log('Got depth message: ' + message);
     let depth = JSON.parse(message);
-    let description = getInstrumentDescription(depth.instrument_id);
+    let description = getInstrumentDescription(depth.instrument_key);
     $("#markets_body").append(
         "<tr>"
         + "<td>" + description + "</td>"
@@ -92,7 +92,7 @@ function handleLastTrade(stompMessage) {
 
   //  console.log('Got last trade message: ' + message);
     let last_trade = JSON.parse(message);
-    let description = getInstrumentDescription(last_trade.instrument_id);
+    let description = getInstrumentDescription(last_trade.instrument_key);
 
     $("#markets_body").append(
         "<tr>"
@@ -114,7 +114,7 @@ function handlePosition(position) {
     if (position !== undefined && position !== null) {
         $("#positions_body").append(
             "<tr>"
-            + "<td>" + getInstrumentDescription(position.instrument_id) + "</td>"
+            + "<td>" + getInstrumentDescription(position.instrument_key) + "</td>"
             + "<td>" + position.quantity + "</td>"
             + "<td>" + position.cost + "</td>"
             + "<td>" + position.closed_gain + "</td>"
@@ -130,7 +130,7 @@ function handleOrderState(orderState) {
             if (description.length > 0) {
                 description += "/";
             }
-            description += getInstrumentDescription(leg.instrument_id);
+            description += getInstrumentDescription(leg.instrument_key);
         }
 
         $("#orders_body").append(
@@ -177,8 +177,8 @@ function processInstruments(instrument_data) {
 
     Object.values(instruments).forEach((instrument) => {
   //      console.log('instrument: ' + JSON.stringify(instrument));
-        subscribe('/markets/' + instrument.instrument_id + '/depth', handleDepth);
-        subscribe('/markets/' + instrument.instrument_id + '/last_trade', handleLastTrade);
+        subscribe('/markets/' + instrument.instrument_key + '/depth', handleDepth);
+        subscribe('/markets/' + instrument.instrument_key + '/last_trade', handleLastTrade);
     })
     getAccounts();
     stompClient.activate();
