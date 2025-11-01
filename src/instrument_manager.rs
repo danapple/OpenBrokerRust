@@ -21,6 +21,7 @@ pub struct InstrumentManager {
 }
 
 struct ExchangeHolder {
+    exchange: Arc<Exchange>,
     exchange_client: Arc<ExchangeClient>,
     exchange_websocket_client: Arc<ExchangeWebsocketClient>
 }
@@ -105,8 +106,9 @@ impl InstrumentManager {
                                                                      handle_execution, handle_order_state,
                                                                      handle_depth, handle_last_trade);
         exchange_websocket_client.start_exchange_websockets().await;
-
+        let exchange_id = exchange.exchange_id;
         let exchange_holder = ExchangeHolder {
+            exchange: Arc::new(exchange),
             exchange_client: Arc::new(exchange_client),
             exchange_websocket_client: Arc::new(exchange_websocket_client),
         };
@@ -114,7 +116,7 @@ impl InstrumentManager {
             Ok(writable_exchanges) => writable_exchanges,
             Err(writable_error) => return Err(anyhow::anyhow!("Unable to get write access to exchanges: {}", writable_error)),
         };
-        writable_exchanges.insert(exchange.exchange_id, Arc::from(exchange_holder));
+        writable_exchanges.insert(exchange_id, Arc::from(exchange_holder));
 
         Ok(())
     }
@@ -126,6 +128,17 @@ impl InstrumentManager {
         };
         match readable_exchanges.get(&instrument.exchange_id) {
             Some(exchange_holder) => Ok(exchange_holder.exchange_client.clone()),
+            None => Err(anyhow::anyhow!("No exchange for instrument: {}", instrument.instrument_id)),
+        }
+    }
+
+    pub fn get_exchange_for_instrument(&self, instrument: &Instrument) -> Result<Arc<Exchange>, Error> {
+        let readable_exchanges = match self.exchanges_holders_by_id.read() {
+            Ok(readable_exchanges) => readable_exchanges,
+            Err(readable_error) => return Err(anyhow::anyhow!("Unable to get read access to exchanges: {}", readable_error)),
+        };
+        match readable_exchanges.get(&instrument.exchange_id) {
+            Some(exchange_holder) => Ok(exchange_holder.exchange.clone()),
             None => Err(anyhow::anyhow!("No exchange for instrument: {}", instrument.instrument_id)),
         }
     }
@@ -165,5 +178,13 @@ impl InstrumentManager {
             Some(instrument) => Ok(Some(instrument.clone())),
             None => Ok(None)
         }
+    }
+
+    pub fn get_instruments(&self) -> Result<HashMap<i64, Instrument>, Error> {
+        let instruments = match self.instruments.read() {
+            Ok(x) => x,
+            Err(writable_error) => return Err(anyhow::anyhow!("get_instrument unable to get read access to instruments: {}", writable_error)),
+        };
+        Ok(instruments.clone())
     }
 }

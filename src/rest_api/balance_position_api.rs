@@ -17,7 +17,7 @@ pub async fn get_positions(dao: ThinData<Dao>,
                            account_key: Path<(String,)>,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
 
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -60,7 +60,7 @@ pub async fn get_balance(dao: ThinData<Dao>,
                          session: Session,
                          account_key: Path<(String,)>,) -> HttpResponse {
     let account_key = &account_key.0.as_str().to_string();
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());

@@ -26,6 +26,7 @@ mod exchange_interface;
 use crate::access_control::AccessControl;
 use crate::auth::account_pages;
 use crate::persistence::dao::Dao;
+use crate::rest_api::instrument_api;
 use crate::vetting::all_pass_vetter::AllPassVetter;
 use crate::websockets::server::WebSocketServer;
 use crate::websockets::ws_handler;
@@ -131,6 +132,7 @@ async fn main() -> io::Result<()> {
             .service(admin_api::offer_admin::create_offer)
             .service(admin_api::instrument_admin::create_exchange)
             .service(admin_api::instrument_admin::load_exchange_instruments)
+            .service(instrument_api::get_instruments)
             .service(ws_handler::ws_setup)
             .service(fs::Files::new("/app", "./resources/static/app")
                          .show_files_listing()

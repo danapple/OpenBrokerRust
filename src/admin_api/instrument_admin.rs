@@ -21,7 +21,7 @@ pub async fn create_exchange(dao: ThinData<Dao>,
 ) -> HttpResponse {
     info!("create_exchange called");
 
-    let allowed: bool = match access_control.is_admin_allowed(&session, Power::All).await {
+    let allowed: bool = match access_control.is_admin_allowed_power(&session, Power::All) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking admin access: {}", error.to_string());
@@ -65,7 +65,7 @@ pub async fn load_exchange_instruments(dao: ThinData<Dao>,
 ) -> HttpResponse {
     info!("load_exchange_instruments called");
 
-    let allowed: bool = match access_control.is_admin_allowed(&session, Power::All).await {
+    let allowed: bool = match access_control.is_admin_allowed_power(&session, Power::All) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking admin access: {}", error.to_string());

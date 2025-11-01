@@ -58,7 +58,6 @@ impl AccessControl {
     pub fn get_allowed_accounts(&self, session: &Session) -> Result<HashMap<String, Account>, Error> {
         debug!("get_allowed_accounts using session {:p}", session);
 
-
         let account_map_option  = match session.get::<HashMap<String, Account>>(SESSION_ACCOUNT_MAP_KEY) {
             Ok(account_map_option) => account_map_option,
             Err(get_error) => return Err(anyhow::anyhow!("Could not get account map: {}", get_error.to_string()))
@@ -78,7 +77,18 @@ impl AccessControl {
         Ok(account.privileges.contains(&privilege))
     }
 
-    pub async fn is_allowed(& self, session: &Session, account_key: &str, privilege: Privilege) -> Result<bool, Error> {
+    pub fn is_allowed(&self, session: &Session) -> Result<bool, Error> {
+        let actor = match session.get::<Actor>(SESSION_ACTOR_KEY) {
+            Ok(actor) => actor,
+            Err(get_error) => return Err(anyhow::anyhow!("Could not get actor: {}", get_error.to_string()))
+        };
+        match actor {
+            Some(_) => Ok(true),
+            None => Ok(false)
+        }
+    }
+
+    pub fn is_allowed_account_privilege(&self, session: &Session, account_key: &str, privilege: Privilege) -> Result<bool, Error> {
         debug!("is_allowed checking account_key {} with privilege {} against session", account_key, privilege);
         let accounts = match self.get_allowed_accounts(session) {
             Ok(accounts) => accounts,
@@ -87,7 +97,7 @@ impl AccessControl {
         self.is_allowed_from_map(&accounts, account_key, privilege)
     }
 
-    pub async fn is_admin_allowed(& self, session: &Session, power: Power) -> Result<bool, Error> {
+    pub fn is_admin_allowed_power(& self, session: &Session, power: Power) -> Result<bool, Error> {
         debug!("is_admin_allowed checking with power {} against session", power);
         let powers_option  = match session.get::<Vec<Power>>(SESSION_POWERS) {
             Ok(powers) => powers,

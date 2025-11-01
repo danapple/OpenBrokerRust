@@ -16,7 +16,7 @@ pub async fn create_offer(dao: ThinData<Dao>,
 ) -> HttpResponse {
     info!("create_offer_code called");
 
-    let allowed: bool = match access_control.is_admin_allowed(&session, Power::All).await {
+    let allowed: bool = match access_control.is_admin_allowed_power(&session, Power::All) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking admin access: {}", error.to_string());

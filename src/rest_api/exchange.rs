@@ -63,6 +63,17 @@ impl FromStr for AssetClass {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone, ToSql, FromSql, PartialEq)]
+pub struct Instrument {
+    pub instrument_id: i64,
+    pub status: InstrumentStatus,
+    pub symbol: String,
+    pub asset_class: AssetClass,
+    pub exchange_code: String,
+    pub description: String,
+    pub expiration_time: i64
+}
+
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Exchange {
     pub code: String,

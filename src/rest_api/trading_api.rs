@@ -28,7 +28,7 @@ pub async fn get_orders(dao: ThinData<Dao>,
     info!("get_orders called");
     let account_key = path.into_inner();
 
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -71,7 +71,7 @@ pub async fn get_order(dao: ThinData<Dao>,
                        path: Path<(String, String)>,) -> HttpResponse {
     let (account_key, ext_order_id) = path.into_inner();
     info!("get_order called for ext_order_id {ext_order_id}");
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -116,7 +116,7 @@ pub async fn preview_order(dao: ThinData<Dao>,
                            path: Path<(String)>,
                            rest_api_order: Json<Order>) -> HttpResponse {
     let account_key = path.into_inner();
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -153,7 +153,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let account_key = path.into_inner();
 
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());
@@ -303,7 +303,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     let (account_key, ext_order_id) = path.into_inner();
 
     info!("cancel_order called for ext_order_id {ext_order_id}");
-    let allowed: bool = match access_control.is_allowed(&session, &account_key, Privilege::Read).await {
+    let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
         Err(error) => {
             error!("Failed while checking access: {}", error.to_string());

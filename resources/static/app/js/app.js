@@ -1,6 +1,7 @@
 
 var connected = false;
-var subscriptions = [];
+var subscriptions = {};
+var instruments = {};
 
 const stompClient = new StompJs.Client({
     webSocketFactory: function () {
@@ -15,35 +16,33 @@ stompClient.onopen = function() {
 stompClient.onConnect = (frame) => {
     setConnected();
     console.log('Connected: ' + frame);
-    stompClient.subscribe('/markets/0/depth', message => {
-        handleDepth(message.body);
-    });
-    stompClient.subscribe('/markets/0/last_trade', message => {
-        handleLastTrade(message.body);
-    });
-    for (const subscription of subscriptions) {
-        sendsubscribe(subscription);
+    for (const [destination, func] of Object.entries(subscriptions)) {
+        sendsubscribe(destination, func);
     }
 };
 
-function subscribe(accountKey) {
-    subscriptions.push(accountKey);
+function subscribe(destination, func) {
+    console.log('Subscribing: ' + destination);
+    subscriptions[destination] = func;
     if (!connected) {
         return;
     }
-    sendsubscribe(accountKey);
+    sendsubscribe(destination, func);
 }
 
-function sendsubscribe(accountKey) {
-    console.log('Subscribing to ' + accountKey);
-    destination = '/accounts/' + accountKey + '/updates';
-    stompClient.subscribe(destination, message => {
-        handleUpdate(message.body);
-    });
-    stompClient.publish({destination: destination, body: JSON.stringify({ request: "GET", scope: "balance"})});
-    stompClient.publish({destination: destination, body: JSON.stringify({ request: "GET", scope: "positions"})});
-    stompClient.publish({destination: destination, body: JSON.stringify({ request: "GET", scope: "orders"})});
+function subscribeAccount(accountKey, func) {
+    let destination = '/accounts/' + accountKey + '/updates';
+    subscribe(destination, func);
+}
 
+function sendsubscribe(destination, func) {
+    console.log('sendsubscribe to ' + destination);
+    stompClient.subscribe(destination, func);
+    if (destination.startsWith('/accounts/')) {
+        stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "balance"})});
+        stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "positions"})});
+        stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "orders"})});
+    }
 }
 
 stompClient.onWebSocketError = (error) => {
@@ -64,34 +63,47 @@ function connect() {
     console.log('Connecting...')
     // let cookie = 'api_key=' + $("#apiKeyElement").val();
     // document.cookie = cookie;
-    stompClient.activate();
-    getAccounts();
+    getInstruments();
 }
 
+function getInstrumentDescription(instrument_id) {
+    var instrument = instruments[instrument_id];
+    if (!instrument) {
+        return "Id: " + instrument_id;
+    }
+    console.log("Instrument description for display" + instrument.description);
+    return instrument.description;
+}
 
-function handleDepth(message) {
-    // console.log('Got depth message: ' + message);
+function handleDepth(stompMessage) {
+    let message = stompMessage.body;
+    console.log('Got depth message: ' + message);
     let depth = JSON.parse(message);
-
+    let description = getInstrumentDescription(depth.instrument_id);
     $("#markets_body").append(
         "<tr>"
-        + "<td>"+ depth.instrument_id + "</td>"
+        + "<td>" + description + "</td>"
         + "<td>" + message + "</td>"
         + "</tr>");
 }
 
-function handleLastTrade(message) {
-    // console.log('Got last trade message: ' + message);
+function handleLastTrade(stompMessage) {
+    let message = stompMessage.body;
+
+    console.log('Got last trade message: ' + message);
     let last_trade = JSON.parse(message);
+    let description = getInstrumentDescription(last_trade.instrument_id);
 
     $("#markets_body").append(
         "<tr>"
-        + "<td>"+ last_trade.instrument_id + "</td>"
+        + "<td>"+ description + "</td>"
         + "<td>" + message + "</td>"
         + "</tr>");
 }
 
-function handleUpdate(message) {
+function handleUpdate(stompMessage) {
+    let message = stompMessage.body;
+
     // console.log('Got message: ' + message);
     let account_update = JSON.parse(message);
     // console.log('Parsed: ' + account_update);
@@ -113,7 +125,7 @@ function handleUpdate(message) {
     if (position !== undefined && position !== null) {
         $("#positions_body").append(
             "<tr>"
-            + "<td>" + position.instrument_id + "</td>"
+            + "<td>" + getInstrumentDescription(position.instrument_id) + "</td>"
             + "<td>" + position.quantity + "</td>"
             + "<td>" + position.cost + "</td>"
             + "<td>" + position.closed_gain + "</td>"
@@ -132,25 +144,32 @@ function handleUpdate(message) {
     }
 }
 
-$(function () {
-    $("form").on('submit', (e) => e.preventDefault());
-    $( "#connect" ).click(() => connect());
-});
-
 function processAccounts(account_data) {
-    console.log('Got accounts:' + account_data);
+    console.log('Got accounts:' + JSON.stringify(account_data));
     $("#account-data").show();
 
     for (account of account_data) {
-        console.log('account: ' + account);
+        console.log('account: ' + JSON.stringify(account));
         $("#accounts_body").append(
             "<tr>"
             + "<td>"+ account.account_number + "</td>"
             + "<td>" + account.privileges + "</td>");
-        subscribe(account.account_key);
+        subscribeAccount(account.account_key, handleUpdate);
         break;
     }
+}
 
+function processInstruments(instrument_data) {
+    console.log('Got instruments:' + JSON.stringify(instrument_data));
+    instruments = instrument_data;
+
+    Object.values(instruments).forEach((instrument) => {
+        console.log('instrument: ' + JSON.stringify(instrument));
+        subscribe('/markets/' + instrument.instrument_id + '/depth', handleDepth);
+        subscribe('/markets/' + instrument.instrument_id + '/last_trade', handleLastTrade);
+    })
+    getAccounts();
+    stompClient.activate();
 }
 
 function getAccounts() {
@@ -161,6 +180,18 @@ function getAccounts() {
         }
     };
     xhttp.open("GET", "/accounts", true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    xhttp.send();
+}
+
+function getInstruments() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            processInstruments(JSON.parse(this.responseText));
+        }
+    };
+    xhttp.open("GET", "/instruments", true);
     xhttp.setRequestHeader("Content-type", "application/json");
     xhttp.send();
 }
