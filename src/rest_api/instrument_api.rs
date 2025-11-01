@@ -11,7 +11,6 @@ use std::collections::HashMap;
 #[get("/instruments")]
 pub async fn get_instruments(access_control: ThinData<AccessControl>,
                              instrument_manager: ThinData<InstrumentManager>,
-
                              session: Session,) -> HttpResponse {
     info!("get_instruments called");
     let allowed = match access_control.is_allowed(&session) {

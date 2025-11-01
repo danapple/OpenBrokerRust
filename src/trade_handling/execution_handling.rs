@@ -17,6 +17,7 @@ pub fn handle_execution(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &We
 }
 
 async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, instrument_manager: InstrumentManager, execution: Execution) {
+    let start = current_time_millis();
     let _lock = mutex.lock().await;
     let mut db_connection = match dao.get_connection().await {
         Ok(db_connection) => db_connection,
@@ -160,6 +161,8 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
         order_state: None,
     };
     web_socket_server.send_account_message(account.account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &account_update);
+    let end = current_time_millis();
+    info!("handle_execution_thread took {} ms", end-start);
 
 }
 
