@@ -5,7 +5,7 @@ pub mod actor;
 mod access;
 mod balance;
 mod position;
-mod instrument;
+mod exchange;
 mod offer;
 pub mod admin;
 pub mod account_management;

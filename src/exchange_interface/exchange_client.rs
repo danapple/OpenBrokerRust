@@ -12,20 +12,20 @@ pub struct ExchangeClient {
     exchange_url: String,
 }
 
-pub(crate) fn get_customer_key_cookie(customer_key: &String) -> String {
+pub(crate) fn get_customer_key_cookie(customer_key: &str) -> String {
     ["customerKey", &customer_key].join("=")
 }
 
 impl ExchangeClient {
-    pub fn new (config: &BrokerConfig) -> Self {
+    pub fn new(exchange_url: &str, broker_key: &str) -> Self {
         let jar = Arc::new(Jar::default());
-        let url = match config.exchange_url.parse::<Url>() {
+        let url = match exchange_url.parse::<Url>() {
             Ok(url_string) => url_string,
             Err(parse_error) => {
                 panic!("ExchangeClient::new url_string parse error {}", parse_error);
             }
         };
-        jar.add_cookie_str(&get_customer_key_cookie(&config.broker_key), &url);
+        jar.add_cookie_str(&get_customer_key_cookie(broker_key), &url);
 
         let client = match Client::builder().cookie_provider(Arc::clone(&jar)).build() {
             Ok(client) => client,
@@ -36,7 +36,7 @@ impl ExchangeClient {
 
         ExchangeClient {
             client,
-            exchange_url: config.exchange_url.clone(),
+            exchange_url: exchange_url.to_string(),
         }
     }
 

@@ -58,7 +58,7 @@ impl entities::trading::OrderState {
 }
 
 impl Order {
-    pub fn to_exchange_order(&self, instrument_manager: ThinData<InstrumentManager>) -> Result<exchange_interface::trading::Order, anyhow::Error> {
+    pub fn to_exchange_order(&self, instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::trading::Order, anyhow::Error> {
         let mut order_legs: Vec<exchange_interface::trading::OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
 

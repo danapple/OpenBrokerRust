@@ -1,23 +1,12 @@
 use crate::access_control::AccessControl;
-use crate::constants::{ACCOUNT_UPDATE_QUEUE_NAME, APPLICATION_JSON};
-use crate::entities::trading::OrderLeg;
-use crate::instrument_manager::{Instrument, InstrumentManager};
-use crate::persistence::dao::{Dao, DaoError};
-use crate::rest_api::account::Privilege;
+use crate::persistence::dao::Dao;
 use crate::rest_api::actor::Power;
-use crate::rest_api::base_api;
-use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500, send_order_state};
+use crate::rest_api::base_api::log_dao_error_and_return_500;
 use crate::rest_api::offer::Offer;
-use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
-use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
-use crate::time::current_time_millis;
-use crate::{entities, exchange_interface};
 use actix_session::Session;
-use actix_web::web::{Json, Path, ThinData};
-use actix_web::{web, HttpRequest, HttpResponse};
-use anyhow::Error;
-use log::{error, info, warn};
-use uuid::Uuid;
+use actix_web::web::{Json, ThinData};
+use actix_web::HttpResponse;
+use log::{error, info};
 
 #[post("/admin/offer")]
 pub async fn create_offer(dao: ThinData<Dao>,

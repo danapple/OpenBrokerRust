@@ -27,6 +27,7 @@ DROP TABLE IF EXISTS actor;
 DROP TABLE IF EXISTS offer;
 DROP TABLE IF EXISTS instrument;
 DROP TABLE IF EXISTS instrument_status;
+DROP TABLE IF EXISTS asset_class;
 DROP TABLE IF EXISTS exchange;
 DROP TABLE IF EXISTS id;
 
@@ -37,8 +38,11 @@ CREATE TABLE IF NOT EXISTS id (
 
 CREATE TABLE IF NOT EXISTS exchange (
     exchangeId SERIAL PRIMARY KEY,
+    code VARCHAR UNIQUE NOT NULL,
     url VARCHAR NOT NULL,
-    desccription VARCHAR NOT NULL
+    websocketUrl VARCHAR NOT NULL,
+    description VARCHAR NOT NULL,
+    apiKey VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS instrument_status (
@@ -50,13 +54,29 @@ INSERT INTO instrument_status (instrumentStatus) VALUES
       ('Inactive')
 ;
 
+CREATE TABLE IF NOT EXISTS asset_class (
+    assetClass VARCHAR PRIMARY KEY
+);
+
+INSERT INTO asset_class (assetClass)
+VALUES
+    ('Equity'),
+    ('Option'),
+    ('Commodity'),
+    ('Future'),
+    ('Forward'),
+    ('Swap'),
+    ('Bond'),
+    ('Cryto')
+;
+
 CREATE TABLE IF NOT EXISTS instrument (
     instrumentId BIGSERIAL PRIMARY KEY,
     exchangeId INT REFERENCES exchange,
     exchangeInstrumentId BIGINT NOT NULL,
     status VARCHAR NOT NULL REFERENCES instrument_status,
     symbol VARCHAR NOT NULL,
-    assetClass VARCHAR NOT NULL,
+    assetClass VARCHAR NOT NULL REFERENCES asset_class,
     description VARCHAR NOT NULL,
     expirationTime BIGINT NOT NULL
 );
@@ -239,7 +259,7 @@ GRANT SELECT ON TABLE privilege, power TO broker_user;
 
 GRANT SELECT, INSERT ON TABLE order_base, order_number_generator, order_leg, order_status, order_state,
     order_state_history, trade, position, balance, actor, login_info, offer, account, balance,
-    actor_account_relationship, access, api_key
+    actor_account_relationship, access, api_key, exchange, instrument
     TO broker_user;
 
 GRANT UPDATE ON TABLE public.order_state, public.position, public.balance, public.order_number_generator,

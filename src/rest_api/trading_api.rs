@@ -1,19 +1,16 @@
 use crate::access_control::AccessControl;
-use crate::constants::{ACCOUNT_UPDATE_QUEUE_NAME, APPLICATION_JSON};
+use crate::constants::APPLICATION_JSON;
 use actix_session::Session;
 use actix_web::web::{Json, Path, ThinData};
-use actix_web::{web, HttpRequest, HttpResponse};
-use anyhow::Error;
-use log::{error, info, warn};
+use actix_web::HttpResponse;
+use log::{error, info};
 use std::collections::HashMap;
 use std::string::ToString;
 use uuid::Uuid;
 
-use crate::entities::trading::OrderLeg;
-use crate::instrument_manager::{Instrument, InstrumentManager};
-use crate::persistence::dao::{Dao, DaoError};
+use crate::instrument_manager::InstrumentManager;
+use crate::persistence::dao::Dao;
 use crate::rest_api::account::Privilege;
-use crate::rest_api::base_api;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500, send_order_state};
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
@@ -198,7 +195,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let instrument = match instrument_option {
         Some(instrument) => instrument,
         None => {
-            return HttpResponse::PreconditionFailed().json("instrument 0 is unknown")
+            return HttpResponse::PreconditionFailed().json(format!("instrument {} is unknown", first_leg_instrument_id))
         }
     };
 
@@ -219,7 +216,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
-    let exchange_order_result = rest_api_order.to_exchange_order(instrument_manager);
+    let exchange_order_result = rest_api_order.to_exchange_order(&instrument_manager);
     let exchange_order = match exchange_order_result {
         Ok(exchange_order) => exchange_order,
         Err(err) => return log_text_error_and_return_500(err.to_string())
@@ -255,7 +252,15 @@ pub async fn submit_order(dao: ThinData<Dao>,
     };
     send_order_state(&mut web_socket_server, &account_key, &order_state);
 
-    let exchange_order_state = match instrument.exchange_client.submit_order(exchange_order).await {
+    let exchange_client = match instrument_manager.get_exchange_client_for_instrument(&instrument) {
+        Ok(exchange_client) => exchange_client,
+        Err(instrument_error) => {
+            error!("Could not get exchange for instrument {}: {}", instrument.instrument_id, instrument_error);
+            return HttpResponse::PreconditionFailed().finish()
+        }
+    };
+
+    let exchange_order_state = match exchange_client.submit_order(exchange_order).await {
         Ok(exchange_order_state) => exchange_order_state,
         Err(submit_order_error) => {
             error!("submit_order_error: {}", submit_order_error);
@@ -362,7 +367,15 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         }
     };
 
-    let exchange_order_state = match instrument.exchange_client.cancel_order(order_state.clone().order.client_order_id).await {
+    let exchange_client = match instrument_manager.get_exchange_client_for_instrument(&instrument) {
+        Ok(exchange_client) => exchange_client,
+        Err(instrument_error) => {
+            error!("Could not get exchange: {}", instrument_error);
+            return HttpResponse::PreconditionFailed().finish()
+        }
+    };
+
+    let exchange_order_state = match exchange_client.cancel_order(order_state.clone().order.client_order_id).await {
         Ok(exchange_order_state) => exchange_order_state,
         Err(cancel_order_error) => {
             error!("cancel_order_error: {}", cancel_order_error);

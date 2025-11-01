@@ -9,9 +9,11 @@ def main(argv):
     api_key=''
     code=''
     description=''
-    expiration_days=''
+    exchangeUrl=''
+    websocketUrl=''
+    exchangeApiKey=''
     try:
-       opts, args = getopt.getopt(argv, "", ["apiKey=","code=", "description=", "expirationDays="])
+       opts, args = getopt.getopt(argv, "", ["apiKey=","code=", "description=", "exchangeUrl=", "websocketUrl=", "exchangeApiKey="])
     except getopt.GetoptError:
        print ('oops')
        sys.exit(2)
@@ -20,28 +22,32 @@ def main(argv):
              apiKey=arg
          if opt == '--code':
              code=arg
+         if opt == '--exchangeUrl':
+             exchangeUrl=arg
+         if opt == '--websocketUrl':
+             websocketUrl=arg
          if opt == '--description':
              description=arg
-         if opt == '--expirationDays':
-             expiration_days=arg
-
-    expiration_time = int((time.time() * 1000) + (86400 * 1000 * int(expiration_days)))
+         if opt == '--exchangeApiKey':
+             exchangeApiKey=arg
 
     (url, _, session) = login(apiKey)
 
     req = { "code": code, \
             "description": description, \
-            "expiration_time": expiration_time
+            "url": exchangeUrl, \
+            "websocket_url": websocketUrl, \
+            "api_key": exchangeApiKey
     }
 
-    path=url + "/admin/offer"
+    path=url + "/admin/exchange"
 
     print ('Requesting at path', path)
     print ('req', req)
 
     r = session.post(path, json=req, verify=False)
 
-    print ('Submit order Response')
+    print ('Create exchange Response')
     print(r)
     print(r.json())
 

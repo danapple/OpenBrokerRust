@@ -1,14 +1,5 @@
 pub(crate) use crate::rest_api::trading::OrderStatus;
 
-// #[derive(Clone)]
-// pub struct Instrument {
-//     pub instrument_id: u64,
-//     pub exchange_instrument_id: u64,
-//     pub value_factor: f64,
-//     pub underlying_instrument_id: u64,
-//     pub underlying_quantity: f64,
-// }
-
 #[derive(Clone)]
 pub struct OrderState {
     pub order: Order,

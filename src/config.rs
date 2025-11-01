@@ -4,10 +4,7 @@ use serde::Deserialize;
 #[derive(Debug, Default, Configuration, Clone)]
 pub struct BrokerConfig {
     pub server_addr: String,
-    pub exchange_url: String,
-    pub exchange_websocket_address: String,
-    pub broker_key: String,
-    pub log_level: String,  
+    pub log_level: String,
     #[confik(from = DbConfig)]
     pub pg: deadpool_postgres::Config,
     pub redis_addr: String,

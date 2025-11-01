@@ -11,7 +11,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub struct ExchangeWebsocketClient {
-    pub config: BrokerConfig,
+    pub websocket_address: String, 
+    pub customer_key: String,
     pub dao: Dao,
     pub web_socket_server: WebSocketServer,
     pub instrument_manager: InstrumentManager,
@@ -23,7 +24,8 @@ pub struct ExchangeWebsocketClient {
 }
 
 impl ExchangeWebsocketClient {
-    pub fn new(config: BrokerConfig,
+    pub fn new(websocket_address: String, 
+               customer_key: String,
                dao: Dao,
                web_socket_server: WebSocketServer,
                instrument_manager: InstrumentManager,
@@ -32,7 +34,8 @@ impl ExchangeWebsocketClient {
                depth_handler: fn(&Dao, &WebSocketServer, &InstrumentManager, MarketDepth),
                last_trade_handler: fn(&Dao, &WebSocketServer, &InstrumentManager, LastTrade)) -> Self {
         ExchangeWebsocketClient {
-            config,
+            websocket_address,
+            customer_key,
             dao,
             web_socket_server,
             instrument_manager,
@@ -44,7 +47,7 @@ impl ExchangeWebsocketClient {
         }}
 
     pub async fn start_exchange_websockets(&self) {
-        let mut conn = websockets::client::WebsocketClient::new(&self.config);
+        let mut conn = websockets::client::WebsocketClient::new(self.websocket_address.clone(), self.customer_key.clone());
 
         conn.subscribe("/user/queue/executions", build_executions_receiver(self.mutex.clone(), self.dao.clone(), self.web_socket_server.clone(), self.instrument_manager.clone(), self.execution_handler, self.order_state_handler));
         conn.subscribe("/topics/depth", build_depth_receiver(self.mutex.clone(), self.dao.clone(), self.web_socket_server.clone(), self.instrument_manager.clone(), self.depth_handler));

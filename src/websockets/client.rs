@@ -17,15 +17,15 @@ use tokio_tungstenite::tungstenite::Message;
 
 pub struct WebsocketClient {
     websocket_address: String,
-    broker_key: String,
+    customer_key: String,
     handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync + 'static>>>>,
 }
 
 impl WebsocketClient {
-    pub fn new<'e>(config: &BrokerConfig) -> Self {
+    pub fn new<'e>(websocket_address: String, customer_key: String) -> Self {
         WebsocketClient {
-            websocket_address: config.exchange_websocket_address.clone(),
-            broker_key: config.broker_key.clone(),
+            websocket_address,
+            customer_key,
             handlers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -42,7 +42,7 @@ impl WebsocketClient {
     }
 
     pub fn start(&mut self) {
-        let f = listen(self.websocket_address.clone(), self.broker_key.clone(), self.handlers.clone());
+        let f = listen(self.websocket_address.clone(), self.customer_key.clone(), self.handlers.clone());
         tokio::spawn(f);
     }
 }
@@ -62,12 +62,12 @@ async fn listen(websocket_address: String, broker_key: String, handlers: Arc<RwL
             return Err(anyhow::anyhow!("Could not create client request: {}", request_error.to_string())),
     };
 
-    let api_key_cookie = match get_customer_key_cookie(&broker_key).parse() {
-        Ok(api_key_cookie) => api_key_cookie,
+    let customer_key_cookie = match get_customer_key_cookie(&broker_key).parse() {
+        Ok(customer_key_cookie) => customer_key_cookie,
         Err(parse_error) =>
             return Err(anyhow::anyhow!("Could parse api key cookie: {}", parse_error)),
     };
-    request.headers_mut().insert("Cookie", api_key_cookie);
+    request.headers_mut().insert("Cookie", customer_key_cookie);
 
     let (mut ws_stream, _) = connect_async(request).await.expect("Failed to connect");
     println!("WebSocket client connected");

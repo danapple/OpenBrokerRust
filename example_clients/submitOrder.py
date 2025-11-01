@@ -8,7 +8,7 @@ def main(argv):
     api_key=''
     price=''
     quantity=''
-    instrumentId=''
+    instrument_id=''
     client_order_id=''
     try:
        opts, args = getopt.getopt(argv, "", ["instrumentId=","price=","quantity=","accountKey=","apiKey="])
@@ -21,7 +21,7 @@ def main(argv):
          if opt == '--quantity':
              quantity=arg
          if opt == '--instrumentId':
-             instrumentId=arg
+             instrument_id=arg
          if opt == '--accountKey':
              accountKey=arg
          if opt == '--apiKey':
@@ -32,7 +32,7 @@ def main(argv):
     req = { "price": float(price), \
                            "quantity": int(quantity),
                            "legs": [ \
-                               {"ratio": 1, "instrument_id": int(instrumentId)} \
+                               {"ratio": 1, "instrument_id": int(instrument_id)} \
                                ]\
             }
 

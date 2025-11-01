@@ -4,21 +4,17 @@ extern crate actix_web;
 use actix_files as fs;
 
 use crate::config::BrokerConfig;
-use crate::trade_handling::execution_handling::handle_execution;
-use crate::trade_handling::order_state_handling::handle_order_state;
 
 use actix_cors::Cors;
-use actix_session::{storage::RedisSessionStore, Session, SessionMiddleware};
+use actix_session::{storage::RedisSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
-use actix_web::{dev::ServiceResponse, http::header, middleware, middleware::{ErrorHandlerResponse, ErrorHandlers}, web, web::ThinData, App, HttpServer, Result};
+use actix_web::{dev::ServiceResponse, http::header, middleware, middleware::{ErrorHandlerResponse, ErrorHandlers}, web::ThinData, App, HttpServer, Result};
 use confik::{Configuration as _, EnvSource};
 use std::io;
-use std::sync::Arc;
 use tokio_postgres::NoTls;
 
 use dotenv::dotenv;
 use env_logger::Env;
-use log::info;
 
 mod constants;
 
@@ -29,13 +25,10 @@ mod exchange_interface;
 
 use crate::access_control::AccessControl;
 use crate::auth::account_pages;
-use crate::exchange_interface::exchange_client::ExchangeClient;
-use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, OrderState};
-use crate::exchange_interface::websocket_client::ExchangeWebsocketClient;
-use crate::market_data::receiver::{handle_depth, handle_last_trade};
-use crate::persistence::dao;
+use crate::persistence::dao::Dao;
 use crate::vetting::all_pass_vetter::AllPassVetter;
-use crate::websockets::{server, ws_handler};
+use crate::websockets::server::WebSocketServer;
+use crate::websockets::ws_handler;
 use instrument_manager::InstrumentManager;
 use rest_api::account_api;
 use rest_api::balance_position_api;
@@ -53,12 +46,10 @@ mod trade_handling;
 mod market_data;
 
 fn add_error_header<B>(mut res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
-
     res.response_mut().headers_mut().insert(
         header::CONTENT_TYPE,
         header::HeaderValue::from_static("Error"),
     );
-
     Ok(ErrorHandlerResponse::Response(res.map_into_left_body()))
 
 }
@@ -80,35 +71,18 @@ async fn main() -> io::Result<()> {
         Ok(pool) => pool,
         Err(pool_error) => panic!("Could not create database connection pool: {}", pool_error),
     };
-    let dao = dao::Dao::new(pool);
+    let web_socket_server = WebSocketServer::new();
 
-    info!("About to add instruments");
-    // TODO loop in another thread until instruments are retrieved
-    let base_exchange_client = Arc::new(ExchangeClient::new(&config));
-    let base_instruments = match base_exchange_client.clone().get_instruments().await {
-        Ok(base_instruments) => base_instruments,
-        Err(instrument_error) => todo!("Should retry getting instruments from the exchange: {}", instrument_error),
+    let dao = Dao::new(pool);
+
+    let mut instrument_manager = InstrumentManager::new(dao.clone(), web_socket_server.clone());
+    match instrument_manager.initialize().await {
+        Ok(_) => { },
+        Err(init_error) => panic!("Could not initialize instrument manager: {}", init_error),
     };
 
-    let mut instrument_manager = InstrumentManager::new();
-
-    for instrument in base_instruments.instruments.values() {
-        info!("Adding instrument: {} for exchange {}", instrument.instrument_id, config.exchange_url);
-        instrument_manager.add_instrument(instrument.instrument_id, base_exchange_client.clone());
-    }
-    info!("Done adding instruments");
     let oconfig = config.clone();
 
-    let web_socket_server = server::WebSocketServer::new();
-
-    let exchange_websocket_client = ExchangeWebsocketClient::new(config.clone(),
-                                                                 dao.clone(),
-                                                                 web_socket_server.clone(),
-                                                                 instrument_manager.clone(),
-                                                                 handle_execution, handle_order_state,
-                                                                 handle_depth, handle_last_trade);
-    exchange_websocket_client.start_exchange_websockets().await;
-    
     let access_control = AccessControl::new();
 
     let vetter = AllPassVetter::new();
@@ -155,6 +129,8 @@ async fn main() -> io::Result<()> {
             .service(account_pages::loginapi)
             .service(account_pages::logout)
             .service(admin_api::offer_admin::create_offer)
+            .service(admin_api::instrument_admin::create_exchange)
+            .service(admin_api::instrument_admin::load_exchange_instruments)
             .service(ws_handler::ws_setup)
             .service(fs::Files::new("/app", "./resources/static/app")
                          .show_files_listing()
@@ -165,4 +141,3 @@ async fn main() -> io::Result<()> {
         .run()
         .await
 }
-
