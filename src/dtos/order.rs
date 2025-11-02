@@ -56,7 +56,7 @@ pub fn is_order_status_open(order_status: &OrderStatus) -> bool {
 pub struct OrderState {
     pub update_time: i64,
     pub order_status: OrderStatus,
-    pub remaining_quantity: i32,
+    pub filled_quantity: i32,
     pub order: Order,
     pub version_number: i64,
 }

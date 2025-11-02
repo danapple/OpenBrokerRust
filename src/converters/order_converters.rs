@@ -49,7 +49,7 @@ impl entities::order::OrderState {
         OrderState{
             update_time: self.update_time,
             order_status: self.order_status.clone(),
-            remaining_quantity: 0,
+            filled_quantity: 0,
             version_number: self.version_number,
             order: self.order.to_rest_api_order(account_key, instrument_manager),
         }
