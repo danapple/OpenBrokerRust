@@ -12,6 +12,7 @@ use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500, send_order_state};
+use crate::rest_api::exchange::InstrumentStatus;
 use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::time::current_time_millis;
@@ -182,11 +183,11 @@ pub async fn submit_order(dao: ThinData<Dao>,
     }
 
     let first_leg_instrument_key = match rest_api_order.legs.first() {
-        Some(leg0) => &leg0.instrument_key,
+        Some(leg0) => leg0.instrument_key.clone(),
         None => return HttpResponse::PreconditionFailed().json("no order legs")
     };
 
-    let instrument_result = instrument_manager.get_instrument_by_key(first_leg_instrument_key);
+    let instrument_result = instrument_manager.get_instrument_by_key(&first_leg_instrument_key);
     let instrument_option = match instrument_result {
         Ok(instrument_option) => instrument_option,
         Err(instrument_error) => {
@@ -235,6 +236,18 @@ pub async fn submit_order(dao: ThinData<Dao>,
         order: entities_order,
         version_number: 0,
     };
+
+    match instrument.status {
+        InstrumentStatus::Active => {}
+        InstrumentStatus::Inactive => {
+            order_state.order_status = OrderStatus::Rejected
+        }
+    }
+
+    if instrument.expiration_time < current_time_millis() {
+        order_state.order_status = OrderStatus::Rejected
+    }
+
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
@@ -254,6 +267,10 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state);
+
+    if order_state.order_status != OrderStatus::Pending {
+        return HttpResponse::PreconditionFailed().json(format!("instrument {} is not available for trading", first_leg_instrument_key))
+    }
 
     let exchange_client = match instrument_manager.get_exchange_client_for_instrument(&instrument) {
         Ok(exchange_client) => exchange_client,
