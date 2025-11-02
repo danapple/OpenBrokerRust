@@ -71,6 +71,13 @@ impl<'b> DaoTransaction<'b> {
             "INSERT INTO instrument \
             (instrumentKey, exchangeId, exchangeInstrumentId, status, symbol, assetClass, description, expirationTime) \
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
+            ON CONFLICT (exchangeId, exchangeInstrumentId)
+            DO UPDATE \
+            SET status = $4,\
+             symbol = $5,\
+             assetClass = $6,\
+             description = $7,\
+             expirationTime = $8 \
             RETURNING instrumentId",
             &[&instrument.instrument_key,
                 &instrument.exchange_id,

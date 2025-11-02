@@ -96,11 +96,11 @@ pub async fn load_exchange_instruments(dao: ThinData<Dao>,
     let instruments = match exchange_client.clone().get_instruments().await {
         Ok(instruments) => instruments,
         Err(instrument_error) => {
-            error!("Should error getting instruments from the exchange: {}", instrument_error);
+            error!("Error getting instruments from the exchange: {}", instrument_error);
             return HttpResponse::InternalServerError().finish();
         },
     };
-
+    info!("Got {} instruments", instruments.instruments.len());
     for instrument in instruments.instruments.values() {
         info!("Adding instrument: {} for exchange {}", instrument.instrument_id, exchange.code);
         let mut db_instrument = instrument_from_exchange_instrument(instrument, exchange.exchange_id);

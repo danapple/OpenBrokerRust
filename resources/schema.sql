@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS instrument (
     expirationTime BIGINT NOT NULL
 );
 
+CREATE UNIQUE INDEX unq_exchange_instrument ON instrument (exchangeId, exchangeInstrumentId);
+
+
 CREATE TABLE IF NOT EXISTS offer (
     offerId SERIAL PRIMARY KEY,
     code VARCHAR UNIQUE NOT NULL,
@@ -264,7 +267,7 @@ GRANT SELECT, INSERT ON TABLE order_base, order_number_generator, order_leg, ord
     TO broker_user;
 
 GRANT UPDATE ON TABLE public.order_state, public.position, public.balance, public.order_number_generator,
-    public.login_info
+    public.login_info, public.instrument
     TO broker_user;
 
 GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO broker_user;

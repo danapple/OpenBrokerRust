@@ -17,7 +17,6 @@ pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::t
     }
 }
 
-
 impl entities::trading::OrderLeg {
     pub fn to_rest_api_order_leg(&self, instrument_manager: &InstrumentManager) -> OrderLeg {
         OrderLeg {

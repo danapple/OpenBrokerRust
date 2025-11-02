@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[derive(Clone)]
 pub enum OrderStatus {
@@ -76,14 +74,3 @@ pub struct ExecutionsTopicWrapper {
     pub execution: Option<Execution>
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Instrument {
-    #[serde(rename = "instrumentId")]
-    pub instrument_id: i64,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Instruments {
-    #[serde(rename = "instruments")]
-    pub instruments: HashMap<i64, Instrument>,
-}
