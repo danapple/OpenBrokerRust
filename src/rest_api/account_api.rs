@@ -1,6 +1,6 @@
 use crate::access_control::AccessControl;
 use crate::constants::APPLICATION_JSON;
-use crate::rest_api::account::Account;
+use crate::dtos::account::Account;
 use actix_session::Session;
 use actix_web::web::ThinData;
 use actix_web::HttpResponse;

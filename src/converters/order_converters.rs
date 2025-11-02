@@ -1,23 +1,23 @@
+use crate::dtos::order::{Order, OrderLeg, OrderState, OrderStatus};
 use crate::entities::account::Account;
 use crate::instrument_manager::InstrumentManager;
-use crate::rest_api::trading::{Order, OrderLeg, OrderState, OrderStatus};
 use crate::time::current_time_millis;
 use crate::{entities, exchange_interface};
 use actix_web::web::ThinData;
 use uuid::Uuid;
 
-pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::trading::OrderStatus)
+pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::order::OrderStatus)
                                              -> OrderStatus {
     match order_status {
-        exchange_interface::trading::OrderStatus::Open => OrderStatus::Open,
-        exchange_interface::trading::OrderStatus::Canceled => OrderStatus::Canceled,
-        exchange_interface::trading::OrderStatus::Filled => OrderStatus::Filled,
-        exchange_interface::trading::OrderStatus::Expired => OrderStatus::Expired,
-        exchange_interface::trading::OrderStatus::Rejected => OrderStatus::Rejected,
+        exchange_interface::order::OrderStatus::Open => OrderStatus::Open,
+        exchange_interface::order::OrderStatus::Canceled => OrderStatus::Canceled,
+        exchange_interface::order::OrderStatus::Filled => OrderStatus::Filled,
+        exchange_interface::order::OrderStatus::Expired => OrderStatus::Expired,
+        exchange_interface::order::OrderStatus::Rejected => OrderStatus::Rejected,
     }
 }
 
-impl entities::trading::OrderLeg {
+impl entities::order::OrderLeg {
     pub fn to_rest_api_order_leg(&self, instrument_manager: &InstrumentManager) -> OrderLeg {
         OrderLeg {
             instrument_key: instrument_manager.get_instrument(self.instrument_id).unwrap().unwrap().instrument_key,
@@ -26,7 +26,7 @@ impl entities::trading::OrderLeg {
     }
 }
 
-impl entities::trading::Order {
+impl entities::order::Order {
     pub fn to_rest_api_order(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Order {
         let mut order_legs: Vec<OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
@@ -44,7 +44,7 @@ impl entities::trading::Order {
     }
 }
 
-impl entities::trading::OrderState {
+impl entities::order::OrderState {
     pub fn to_rest_api_order_state(&self, account_key: &str, instrument_manager: &InstrumentManager) -> OrderState {
         OrderState{
             update_time: self.update_time,
@@ -57,8 +57,8 @@ impl entities::trading::OrderState {
 }
 
 impl Order {
-    pub fn to_exchange_order(&self, instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::trading::Order, anyhow::Error> {
-        let mut order_legs: Vec<exchange_interface::trading::OrderLeg> = Vec::new();
+    pub fn to_exchange_order(&self, instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::order::Order, anyhow::Error> {
+        let mut order_legs: Vec<exchange_interface::order::OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
 
             let instrument_result = instrument_manager.get_instrument_by_key(leg.instrument_key.as_str());
@@ -71,13 +71,13 @@ impl Order {
                 None => return Err(anyhow::anyhow!("No instrument with key: {}", leg.instrument_key))
             };
 
-            order_legs.push(exchange_interface::trading::OrderLeg {
+            order_legs.push(exchange_interface::order::OrderLeg {
                 instrument_id: exchange_instrument.exchange_instrument_id,
                 ratio: leg.ratio,
             });
         };
 
-        let order_exchange = exchange_interface::trading::Order {
+        let order_exchange = exchange_interface::order::Order {
             client_order_id: Uuid::new_v4().simple().to_string(),
             price: self.price,
             quantity: self.quantity,
@@ -86,8 +86,8 @@ impl Order {
         Ok(order_exchange)
     }
 
-    pub fn to_entities_order(&self, account: &Account, client_order_id: String, instrument_manager: &ThinData<InstrumentManager>) -> Result<entities::trading::Order, anyhow::Error> {
-        let mut order_legs: Vec<entities::trading::OrderLeg> = Vec::new();
+    pub fn to_entities_order(&self, account: &Account, client_order_id: String, instrument_manager: &ThinData<InstrumentManager>) -> Result<entities::order::Order, anyhow::Error> {
+        let mut order_legs: Vec<entities::order::OrderLeg> = Vec::new();
 
         for leg in self.legs.iter() {
             let instrument_option = match instrument_manager.get_instrument_by_key(&leg.instrument_key) {
@@ -100,14 +100,14 @@ impl Order {
                 None => todo!()
             };
 
-            order_legs.push(entities::trading::OrderLeg {
+            order_legs.push(entities::order::OrderLeg {
                 order_leg_id: 0,
                 instrument_id: instrument.instrument_id,
                 ratio: leg.ratio,
             });
         };
 
-        let order_entity = entities::trading::Order {
+        let order_entity = entities::order::Order {
             order_id: 0,
             account_id: account.account_id,
             order_number: 0,

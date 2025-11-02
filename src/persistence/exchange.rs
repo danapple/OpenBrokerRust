@@ -1,6 +1,6 @@
+use crate::dtos::exchange::{AssetClass, InstrumentStatus};
 use crate::entities::exchange::{Exchange, Instrument};
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
-use crate::rest_api::exchange::{AssetClass, InstrumentStatus};
 use std::collections::HashMap;
 use std::str::FromStr;
 use tokio_postgres::Row;

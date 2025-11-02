@@ -1,11 +1,10 @@
 use crate::access_control::AccessControl;
-use crate::entities::exchange::instrument_from_exchange_instrument;
+use crate::dtos::actor::Power;
 use crate::exchange_interface::exchange_client::ExchangeClient;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
-use crate::rest_api;
-use crate::rest_api::actor::Power;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
+use crate::{dtos, rest_api};
 use actix_session::Session;
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::HttpResponse;
@@ -17,7 +16,7 @@ pub async fn create_exchange(dao: ThinData<Dao>,
                              mut instrument_manager: ThinData<InstrumentManager>,
                              access_control: ThinData<AccessControl>,
                              session: Session,
-                             exchange: Json<rest_api::exchange::Exchange>,
+                             exchange: Json<dtos::exchange::Exchange>,
 ) -> HttpResponse {
     info!("create_exchange called");
 
@@ -103,7 +102,7 @@ pub async fn load_exchange_instruments(dao: ThinData<Dao>,
     info!("Got {} instruments", instruments.instruments.len());
     for instrument in instruments.instruments.values() {
         info!("Adding instrument: {} for exchange {}", instrument.instrument_id, exchange.code);
-        let mut db_instrument = instrument_from_exchange_instrument(instrument, exchange.exchange_id);
+        let mut db_instrument = instrument.to_entities_instrument(exchange.exchange_id);
         match txn.save_instrument(&mut db_instrument).await {
             Ok(_) => {},
             Err(dao_error) => return log_dao_error_and_return_500(dao_error),

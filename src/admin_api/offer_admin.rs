@@ -1,8 +1,8 @@
 use crate::access_control::AccessControl;
+use crate::dtos::actor::Power;
+use crate::dtos::offer::Offer;
 use crate::persistence::dao::Dao;
-use crate::rest_api::actor::Power;
 use crate::rest_api::base_api::log_dao_error_and_return_500;
-use crate::rest_api::offer::Offer;
 use actix_session::Session;
 use actix_web::web::{Json, ThinData};
 use actix_web::HttpResponse;

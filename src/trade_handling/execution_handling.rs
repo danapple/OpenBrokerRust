@@ -1,6 +1,6 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
 use crate::entities::account::Position;
-use crate::exchange_interface::trading::Execution;
+use crate::exchange_interface::order::Execution;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::time::current_time_millis;
@@ -200,7 +200,7 @@ fn apply_execution(position: &mut Position, execution: Execution) {
 #[cfg(test)]
 mod tests {
     use crate::entities::account::Position;
-    use crate::exchange_interface::trading::Execution;
+    use crate::exchange_interface::order::Execution;
     use crate::time::current_time_millis;
     use crate::trade_handling::execution_handling::apply_execution;
 

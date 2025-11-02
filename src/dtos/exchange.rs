@@ -1,4 +1,3 @@
-use crate::entities;
 use postgres_types::{FromSql, ToSql};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -82,17 +81,4 @@ pub struct Exchange {
     pub description: String,
     pub api_key: String,
 
-}
-
-impl Exchange {
-    pub fn to_entities_exchange(&self) -> entities::exchange::Exchange {
-        entities::exchange::Exchange {
-            exchange_id: 0,
-            code: self.code.clone(),
-            url: self.url.clone(),
-            websocket_url: self.websocket_url.clone(),
-            description: self.description.clone(),
-            api_key: self.api_key.clone(),
-        }
-    }
 }

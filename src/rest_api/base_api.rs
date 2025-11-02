@@ -1,5 +1,5 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
-use crate::entities::trading::OrderState;
+use crate::entities::order::OrderState;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::DaoError;
 use crate::websockets::server::WebSocketServer;

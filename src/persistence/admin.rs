@@ -1,5 +1,5 @@
+use crate::dtos::actor::Power;
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
-use crate::rest_api::actor::Power;
 use std::str::FromStr;
 
 impl<'b> DaoTransaction<'b> {

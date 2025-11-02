@@ -1,6 +1,6 @@
+use crate::dtos::account::Privilege;
 use crate::entities::account::Access;
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
-use crate::rest_api::account::Privilege;
 use std::str::FromStr;
 use tokio_postgres::Row;
 

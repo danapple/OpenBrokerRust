@@ -1,8 +1,8 @@
 use crate::access_control::AccessControl;
 use crate::constants::APPLICATION_JSON;
+use crate::dtos::account::Privilege;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
-use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api;
 use crate::rest_api::base_api::log_dao_error_and_return_500;
 use actix_session::Session;

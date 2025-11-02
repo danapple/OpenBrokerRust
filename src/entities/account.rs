@@ -1,4 +1,4 @@
-use crate::rest_api::account::Privilege;
+use crate::dtos::account::Privilege;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]

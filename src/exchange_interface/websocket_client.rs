@@ -1,6 +1,6 @@
 use crate::config::BrokerConfig;
 use crate::exchange_interface::market_data::{LastTrade, MarketDepth};
-use crate::exchange_interface::trading::{Execution, ExecutionsTopicWrapper, OrderState};
+use crate::exchange_interface::order::{Execution, ExecutionsTopicWrapper, OrderState};
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::websockets;

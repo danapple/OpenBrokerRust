@@ -1,7 +1,7 @@
+use crate::dtos::account::{Account, Privilege};
+use crate::dtos::actor::Power;
 use crate::entities::actor::Actor;
 use crate::persistence::dao::DaoTransaction;
-use crate::rest_api::account::{Account, Privilege};
-use crate::rest_api::actor::Power;
 use actix_session::Session;
 use anyhow::Error;
 use log::{debug, info};

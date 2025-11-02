@@ -1,4 +1,4 @@
-pub(crate) use crate::rest_api::trading::OrderStatus;
+pub(crate) use crate::dtos::order::OrderStatus;
 
 #[derive(Clone)]
 pub struct OrderState {

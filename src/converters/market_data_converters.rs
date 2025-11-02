@@ -1,6 +1,6 @@
+use crate::dtos::market_data::{LastTrade, MarketDepth, PriceLevel};
 use crate::exchange_interface;
 use crate::instrument_manager::InstrumentManager;
-use crate::rest_api::market_data::{LastTrade, MarketDepth, PriceLevel};
 
 impl exchange_interface::market_data::LastTrade {
     pub fn to_rest_api_last_trade(&self, instrument_manager: &InstrumentManager) -> LastTrade {

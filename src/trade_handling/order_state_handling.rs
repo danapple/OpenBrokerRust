@@ -1,11 +1,10 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
-use crate::exchange_interface::trading::OrderState;
+use crate::converters::order_converters::order_status_to_rest_api_order_status;
+use crate::exchange_interface::order::OrderState;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
-use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::trade_handling::updates::AccountUpdate;
 use crate::websockets::server::WebSocketServer;
-use actix_web::web::ThinData;
 use log::{error, info};
 use std::sync::Arc;
 use tokio::sync::Mutex;

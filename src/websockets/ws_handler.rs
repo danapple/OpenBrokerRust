@@ -1,7 +1,7 @@
 use crate::access_control::AccessControl;
+use crate::dtos::account::{Account, Privilege};
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
-use crate::rest_api::account::{Account, Privilege};
 use crate::rest_api::base_api;
 use crate::websockets::client::StompMessage;
 use crate::websockets::senders::{send_balance, send_orders, send_positions};

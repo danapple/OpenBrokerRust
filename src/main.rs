@@ -33,7 +33,7 @@ use crate::websockets::ws_handler;
 use instrument_manager::InstrumentManager;
 use rest_api::account_api;
 use rest_api::balance_position_api;
-use rest_api::trading_api;
+use rest_api::order_api;
 
 mod entities;
 mod config;
@@ -45,6 +45,8 @@ mod vetting;
 mod websockets;
 mod trade_handling;
 mod market_data;
+mod converters;
+mod dtos;
 
 fn add_error_header<B>(mut res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
     res.response_mut().headers_mut().insert(
@@ -116,11 +118,11 @@ async fn main() -> io::Result<()> {
                     .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
                     .max_age(3600)
                     )
-            .service(trading_api::get_order)
-            .service(trading_api::get_orders)
-            .service(trading_api::preview_order)
-            .service(trading_api::submit_order)
-            .service(trading_api::cancel_order)
+            .service(order_api::get_order)
+            .service(order_api::get_orders)
+            .service(order_api::preview_order)
+            .service(order_api::submit_order)
+            .service(order_api::cancel_order)
             .service(balance_position_api::get_positions)
             .service(balance_position_api::get_balance)
             .service(account_api::get_accounts)

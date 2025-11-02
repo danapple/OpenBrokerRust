@@ -1,7 +1,7 @@
-use crate::rest_api;
+use crate::dtos;
 
 pub trait Vetter {
-    async fn vet_order(rest_api_order: rest_api::trading::Order) -> VettingResult;
+    async fn vet_order(rest_api_order: dtos::order::Order) -> VettingResult;
 }
 
 pub struct VettingResult {

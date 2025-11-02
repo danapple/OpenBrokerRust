@@ -53,15 +53,6 @@ pub fn is_order_status_open(order_status: &OrderStatus) -> bool {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
-pub struct Instrument {
-    pub instrument_id: i64,
-    pub value_factor: f32,
-    pub underlying_instrument_id: i64,
-    pub underlying_quantity: f32,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[derive(Clone)]
 pub struct OrderState {
     pub update_time: i64,
     pub order_status: OrderStatus,

@@ -1,6 +1,6 @@
-use crate::rest_api::account::{Balance, Position};
-use crate::rest_api::trading::OrderState;
-use crate::rest_api::trading::Trade;
+use crate::dtos::account::{Balance, Position};
+use crate::dtos::order::OrderState;
+use crate::dtos::order::Trade;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]

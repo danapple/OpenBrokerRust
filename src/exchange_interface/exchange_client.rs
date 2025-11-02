@@ -1,7 +1,7 @@
 use crate::config::BrokerConfig;
 use crate::exchange_interface::exchange_error::ExchangeError;
 use crate::exchange_interface::instrument::Instruments;
-use crate::exchange_interface::trading::{Order, OrderState, OrderStates, SubmitOrders};
+use crate::exchange_interface::order::{Order, OrderState, OrderStates, SubmitOrders};
 use log::debug;
 use reqwest::cookie::Jar;
 use reqwest::{Client, Response};

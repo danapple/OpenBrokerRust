@@ -1,6 +1,6 @@
-use crate::entities::trading::{Order, OrderLeg, OrderState};
+use crate::dtos::order::{is_order_status_open, OrderStatus};
+use crate::entities::order::{Order, OrderLeg, OrderState};
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
-use crate::rest_api::trading::{is_order_status_open, OrderStatus};
 use crate::time::current_time_millis;
 use std::collections::HashMap;
 use std::str::FromStr;

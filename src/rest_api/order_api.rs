@@ -8,13 +8,13 @@ use std::collections::HashMap;
 use std::string::ToString;
 use uuid::Uuid;
 
+use crate::converters::order_converters::order_status_to_rest_api_order_status;
+use crate::dtos::account::Privilege;
+use crate::dtos::exchange::InstrumentStatus;
+use crate::dtos::order::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
-use crate::rest_api::account::Privilege;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500, send_order_state};
-use crate::rest_api::exchange::InstrumentStatus;
-use crate::rest_api::trading::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
-use crate::rest_api::trading_converters::order_status_to_rest_api_order_status;
 use crate::time::current_time_millis;
 use crate::vetting::all_pass_vetter::AllPassVetter;
 use crate::websockets::server::WebSocketServer;
@@ -230,7 +230,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
         Ok(entities_order) => entities_order,
         Err(err) => return log_text_error_and_return_500(err.to_string())
     };
-    let mut order_state = entities::trading::OrderState {
+    let mut order_state = entities::order::OrderState {
         update_time: current_time_millis(),
         order_status: OrderStatus::Pending,
         order: entities_order,
@@ -289,7 +289,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     };
 
     // We'll get async notifications for all status updates other than Rejected
-    if exchange_order_state.order_status == exchange_interface::trading::OrderStatus::Rejected {
+    if exchange_order_state.order_status == exchange_interface::order::OrderStatus::Rejected {
         order_state.order_status = OrderStatus::Rejected;
         order_state.update_time = current_time_millis();
 
