@@ -163,7 +163,6 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
     web_socket_server.send_account_message(account.account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &account_update);
     let end = current_time_millis();
     info!("handle_execution_thread took {} ms", end-start);
-
 }
 
 fn apply_execution(position: &mut Position, execution: Execution) {
