@@ -2,6 +2,8 @@
 var connected = false;
 var subscriptions = {};
 var instruments = {};
+var accounts = {};
+var marketData = {};
 
 const stompClient = new StompJs.Client({
     webSocketFactory: function () {
@@ -82,41 +84,142 @@ function getInstrumentDescription(instrument_key) {
     return instrument.description;
 }
 
+function computeMark(bid, ask, last) {
+    if (bid !== undefined && ask !== undefined) {
+        return (bid + ask) / 2;
+    }
+    if (bid !== undefined) {
+        return bid;
+    }
+    if (ask !== undefined) {
+        return ask;
+    }
+    if (last !== undefined) {
+        return last;
+    }
+    return undefined;
+}
+
+function updatePosition(accountKey, instrumentKey, mark) {
+    console.log("accountKey: " + accountKey);
+    let position = accounts[accountKey]['positions'][instrumentKey];
+    let id = computePositionRowId(accountKey, instrumentKey);
+    let opengainid = "opengain:" + id;
+    let netliqid = "netliq:" + id;
+
+    let netLiq = (position.quantity * mark);
+
+    let netLiqElement = document.getElementById(netliqid);
+    if (netLiqElement !== undefined && netLiqElement != null) {
+        netLiqElement.innerHTML = netLiq.toFixed(2);
+    }
+    else {
+        console.log("No position netliq for: " + netliqid);
+    }
+
+
+    let opengain = document.getElementById(opengainid);
+    if (opengain !== undefined && opengain != null) {
+        opengain.innerHTML = (netLiq - position.cost).toFixed(2)
+    }
+    else {
+        console.log("No position open gain for: " + opengainid);
+    }
+
+}
+
+function updatePositions(instrumentKey, mark) {
+    for (let accountKey in accounts) {
+        updatePosition(accountKey, instrumentKey, mark);
+    }
+}
+
+function updateMarketData(instrumentKey) {
+
+    let instrumentData = marketData[instrumentKey];
+    console.log("Instrument data = " + JSON.stringify(instrumentData));
+
+    let bid = undefined;
+    let ask = undefined;
+    let last = undefined;
+
+    let depth = instrumentData['depth'];
+    if (depth !== undefined) {
+        let buys = depth['buys'];
+        let sells = depth['sells'];
+
+        if (buys !== undefined) {
+            let buys0 = buys['0'];
+            if (buys0 !== undefined) {
+                bid = buys0['price'];
+            }
+        }
+        if (sells !== undefined) {
+            let sells0 = sells[0];
+            if (sells0 !== undefined) {
+                ask = sells0['ask'];
+            }
+        }
+    }
+
+    let lastTrade = instrumentData['lastTrade'];
+    if (lastTrade !== undefined) {
+        last = lastTrade.price;
+    }
+
+    let mark = computeMark(bid, ask, last);
+    console.log("mark = " + mark);
+
+    updatePositions(instrumentKey, mark);
+}
+
+function setMarketData(instrumentKey, category, data)    {
+    if (marketData[instrumentKey] === undefined) {
+        marketData[instrumentKey] = {};
+    }
+    let oldData = marketData[instrumentKey][category];
+    if (oldData !== undefined) {
+        // console.log("Old market data version number: " + oldData.version_number +
+        //     ", new market data version number: " + data.version_number);
+        if (oldData.version_number >= data.version_number) {
+            return false;
+        }
+    }
+    marketData[instrumentKey][category] = data;
+    console.log("Market data = " + JSON.stringify(marketData));
+    updateMarketData(instrumentKey);
+
+    return true;
+}
+
+
 function handleDepth(stompMessage) {
     let message = stompMessage.body;
    // console.log('Got depth message: ' + message);
     let depth = JSON.parse(message);
-    let description = getInstrumentDescription(depth.instrument_key);
-    let symbol = getInstrumentSymbol(depth.instrument_key);
-
-    $("#markets_body").append(
-        "<tr>"
-        + "<td title='" + description + "'>" + symbol + "</td>"
-        + "<td>" + message + "</td>"
-        + "</tr>");
+    setMarketData(depth.instrument_key, 'depth', depth);
 }
 
 function handleLastTrade(stompMessage) {
     let message = stompMessage.body;
 
   //  console.log('Got last trade message: ' + message);
-    let last_trade = JSON.parse(message);
-    let description = getInstrumentDescription(last_trade.instrument_key);
-    let symbol = getInstrumentSymbol(last_trade.instrument_key);
-
-    $("#markets_body").append(
-        "<tr>"
-        + "<td title='" + description + "'>" + symbol + "</td>"
-        + "<td>" + message + "</td>"
-        + "</tr>");
+    let lastTrade = JSON.parse(message);
+    setMarketData(lastTrade.instrument_key, 'lastTrade', lastTrade);
 }
 
 function handleBalance(balance) {
     if (balance !== undefined && balance !== null) {
+        let account = accounts[balance.account_key];
+
+        + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
+
         deleteRow('posbalance');
         $("#positions_body").append(
             "<tr id=posbalance>"
+            + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
             + "<td title='cash balance'>-cash-</td>"
+            + "<td></td>"
             + "<td></td>"
             + "<td></td>"
             + "<td>" + (balance.cash).toFixed(2) + "</td>"
@@ -126,37 +229,119 @@ function handleBalance(balance) {
     }
 }
 
-function deleteRow(rowid)
-{
+function deleteRow(rowid) {
     var row = document.getElementById(rowid);
     if (row !== null) {
         row.parentNode.removeChild(row);
     }
 }
 
+function closePosition(accountKey, instrumentKey) {
+    let position = accounts[accountKey]['positions'][instrumentKey];
+    document.getElementById("order_quantity").value = -1 * position.quantity;
+    costBasis = (position.cost / position.quantity).toFixed(2);
+    document.getElementById("order_price").value = costBasis;
+    document.getElementById("order_instrument").value = position.instrument_key;
+}
+
+function computePositionRowId(accountKey, instrumentKey) {
+    return "pos:" + accountKey + ":" + instrumentKey;
+}
+
 function handlePosition(position) {
+  //  console.log("Received position: " + JSON.stringify(position));
     if (position !== undefined && position !== null) {
-        let id = "pos:" + position.instrument_key;
+        let old_position = accounts[position.account_key]['positions'][position.instrument_key];
+        if (old_position !== undefined) {
+            // console.log("Old position version number: " + old_position.version_number +
+            //     ", new position version number: " + position.version_number);
+            if (old_position.version_number >= position.version_number) {
+                console.log("Old position version number: " + old_position.version_number +
+                    ", new position version number: " + position.version_number +
+                    ", skipping update");
+                return;
+            }
+        }
+
+        accounts[position.account_key]['positions'][position.instrument_key] = position;
+        let id = computePositionRowId(position.account_key, position.instrument_key);
         deleteRow(id);
 
         let description = getInstrumentDescription(position.instrument_key);
         let symbol = getInstrumentSymbol(position.instrument_key);
+        let closeButtonId = "close:" + id;
+
+        let actions = "";
+        let costBasis = 0;
+        if (position.quantity !== 0) {
+            costBasis = (position.cost / position.quantity).toFixed(2);
+            actions += "<td>  <button id='" + closeButtonId + "' class=\"btn btn-default\" type=\"submit\">Close</button>\n </td>";
+        }
+
+        let account = accounts[position.account_key];
+
+        let position_body = "<tr id=" + id + ">"
+            + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
+            + "<td title='" + description + "'>" + symbol + "</td>"
+            + "<td>" + position.quantity + "</td>"
+            + "<td>" + costBasis + "</td>"
+            + "<td>" + position.cost + "</td>"
+            + "<td id='netliq:" + id + "'>" + "0" + "</td>"
+            + "<td id='opengain:" + id + "'>" + "N/A" + "</td>"
+            + "<td>" + position.closed_gain + "</td>"
+            + "<td>" + actions + "</td>"
+            + "</tr id=" + position.instrument_key + ">";
+
+        console.log(position_body);
 
         $("#positions_body").append(
             "<tr id=" + id + ">"
+            + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
             + "<td title='" + description + "'>" + symbol + "</td>"
             + "<td>" + position.quantity + "</td>"
+            + "<td>" + costBasis + "</td>"
             + "<td>" + position.cost + "</td>"
-            + "<td>" + (position.cost * position.quantity).toFixed(2) + "</td>"
+            + "<td id='netliq:" + id + "'>" + "0" + "</td>"
+            + "<td id='opengain:" + id + "'>" + "N/A" + "</td>"
             + "<td>" + position.closed_gain + "</td>"
-            + "<td>  <button id=\"close\" class=\"btn btn-default\" type=\"submit\">Close</button>\n </td>"
+            + "<td>" + actions + "</td>"
             + "</tr id=" + position.instrument_key + ">");
+        if (position.quantity !== 0) {
+            document.getElementById(closeButtonId).addEventListener("click", () => {
+                closePosition(position.account_key, position.instrument_key);
+            });
+        }
+        updatePosition(position.account_key, position.instrument_key, 3);
+
     }
+}
+
+function cancelOrder(accountKey, extOrderId) {
+    let xhttp = new XMLHttpRequest();
+
+    let path = "/accounts/" + accountKey + "/orders/" + extOrderId;
+    xhttp.open("DELETE", path, true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    xhttp.send();
 }
 
 function handleOrderState(orderState) {
     if (orderState !== undefined && orderState !== null) {
-        let id = "ord:" + orderState.order.ext_order_id;
+        let oldOrderState = accounts[orderState.order.account_key]['orders'][orderState.order.ext_order_id];
+
+        if (oldOrderState !== undefined) {
+            // console.log("Old order state version number: " + oldOrderState.version_number +
+            //     ", new order state  version number: " + orderState.version_number);
+            if (oldOrderState.version_number >= orderState.version_number) {
+                console.log("Old order state version number: " + oldOrderState.version_number +
+                    ", new order state version number: " + orderState.version_number +
+                    ", skipping update");
+                return;
+            }
+        }
+        accounts[orderState.order.account_key]['orders'][orderState.order.ext_order_id] = orderState;
+
+        let id = "ord:" + orderState.order.account_key + ":" + orderState.order.ext_order_id;
         deleteRow(id);
 
         let symbol = "";
@@ -172,15 +357,32 @@ function handleOrderState(orderState) {
             symbol += getInstrumentSymbol(leg.instrument_key);
         }
 
+        let cancelButtonId = "cancel:" + id;
+
+        let actions = "";
+        if (orderState.order_status === 'Pending' ||
+            orderState.order_status === 'Open') {
+            actions += "<button id='" + cancelButtonId + "' className='btn btn-default' type='submit'>Cancel</button>";
+        }
+        let account = accounts[orderState.order.account_key];
+
         $("#orders_body").append(
             "<tr id=" + id + ">"
+            + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
             + "<td>"+ orderState.order.order_number + "</td>"
             + "<td title='" + description + "'>" + symbol + "</td>"
             + "<td>" + orderState.order_status + "</td>"
             + "<td>"+ orderState.order.quantity + "</td>"
             + "<td>"+ orderState.order.price + "</td>"
-            + "<td>  <button id=\"cancel\" class=\"btn btn-default\" type=\"submit\">Cancel</button>\n </td>"
+            + "<td>" + actions + "</td>"
             + "</td>");
+
+        if (orderState.order_status === 'Pending' ||
+            orderState.order_status === 'Open') {
+            document.getElementById(cancelButtonId).addEventListener("click", () => {
+                cancelOrder(orderState.order.account_key, orderState.order.ext_order_id);
+            });
+        }
     }
 }
 function handleUpdate(stompMessage) {
@@ -196,12 +398,15 @@ function handleUpdate(stompMessage) {
 }
 
 function processAccounts(account_data) {
-   // console.log('Got accounts:' + JSON.stringify(account_data));
+  //  console.log('Got accounts:' + JSON.stringify(account_data));
+    accounts = account_data;
     $("#account-data").show();
     let order_account_select = document.getElementById('order_account');
 
-    for (account of account_data) {
-    //    console.log('account: ' + JSON.stringify(account));
+    Object.values(account_data).forEach((account) => {
+        //    console.log('account: ' + JSON.stringify(account));
+        account['positions'] = {};
+        account['orders'] = {};
         $("#accounts_body").append(
             "<tr>"
             + "<td>"+ account.account_number + "</td>"
@@ -211,16 +416,18 @@ function processAccounts(account_data) {
         opt.value = account.account_key;
         opt.innerHTML = account.account_number;
         order_account_select.appendChild(opt);
-        break;
-    }
+    });
 }
 
 function processInstruments(instrument_data) {
- //   console.log('Got instruments:' + JSON.stringify(instrument_data));
+  //  console.log('Got instruments:' + JSON.stringify(instrument_data));
     instruments = instrument_data;
     let order_instrument_select = document.getElementById('order_instrument');
 
     Object.values(instruments).forEach((instrument) => {
+        if (instrument.status != 'Active') {
+            return;
+        }
   //      console.log('instrument: ' + JSON.stringify(instrument));
         subscribe('/markets/' + instrument.instrument_key + '/depth', handleDepth);
         subscribe('/markets/' + instrument.instrument_key + '/last_trade', handleLastTrade);
@@ -282,12 +489,15 @@ function submitOrder() {
         quantity: Number(quantity),
         legs: [
             {
-                ratio: Numbergit statu(1),
+                ratio: Number(1),
                 instrument_key: instrument_key
             }
         ]
     });
+
     xhttp.send(body);
+    document.getElementById("order_quantity").value = "";
+    document.getElementById("order_price").value = "";
 
 }
 

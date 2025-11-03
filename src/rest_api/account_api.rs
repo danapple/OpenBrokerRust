@@ -16,9 +16,8 @@ pub async fn get_accounts(access_control: ThinData<AccessControl>,
             return HttpResponse::InternalServerError().finish();
         }
     };
-    let account_vec: Vec<Account> = allowed_accounts_map.values().cloned().collect();
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
-        .json(account_vec)
+        .json(allowed_accounts_map)
 }
