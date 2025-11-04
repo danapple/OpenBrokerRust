@@ -49,9 +49,12 @@ pub async fn ws_setup(
 
     let allowed_accounts = match access_control.get_allowed_accounts(&session) {
         Ok(allowed_accounts) => allowed_accounts,
-        Err(_) => todo!(),
+        Err(get_account_error) => {
+            error!("get_allowed_accounts {}", get_account_error);
+            return HttpResponse::InternalServerError().finish();
+        },
     };
-    info!("allowed_accounts: {:?}", allowed_accounts);
+    debug!("allowed_accounts: {:?}", allowed_accounts);
 
     spawn_local(ws_handler(
         dao,
