@@ -19,8 +19,16 @@ pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::o
 
 impl entities::order::OrderLeg {
     pub fn to_rest_api_order_leg(&self, instrument_manager: &InstrumentManager) -> OrderLeg {
+        let instrument = match instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id) {
+            Ok(instrument) => instrument,
+            Err(_) => todo!(),
+        };
+        let instrument_key = match instrument {
+            Some(instrument_key) => instrument_key,
+            None => todo!(),
+        }.instrument_key;
         OrderLeg {
-            instrument_key: instrument_manager.get_instrument(self.instrument_id).unwrap().unwrap().instrument_key,
+            instrument_key,
             ratio: self.ratio,
         }
     }
@@ -92,12 +100,12 @@ impl Order {
         for leg in self.legs.iter() {
             let instrument_option = match instrument_manager.get_instrument_by_key(&leg.instrument_key) {
                 Ok(instrument_option) => instrument_option,
-                Err(_) => todo!(),
+                Err(get_error) => return Err(anyhow::anyhow!("No failed while getting instrument by key: {}", get_error))
             };
 
             let instrument = match instrument_option {
                 Some(instrument) => instrument,
-                None => todo!()
+                None => return Err(anyhow::anyhow!("No instrument for key: {}", &leg.instrument_key))
             };
 
             order_legs.push(entities::order::OrderLeg {

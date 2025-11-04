@@ -16,9 +16,18 @@ impl entities::account::Account {
 
 impl entities::account::Position {
     pub fn to_rest_api_position(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Position {
+        let instrument = match instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id) {
+            Ok(instrument) => instrument,
+            Err(_) => todo!(),
+        };
+        let instrument_key = match instrument {
+            Some(instrument_key) => instrument_key,
+            None => todo!(),
+        }.instrument_key;
+
         Position {
             account_key: account_key.to_string(),
-            instrument_key: instrument_manager.get_instrument(self.instrument_id).unwrap().unwrap().instrument_key,
+            instrument_key,
             quantity: self.quantity,
             cost: self.cost,
             closed_gain: self.closed_gain,

@@ -4,9 +4,18 @@ use crate::instrument_manager::InstrumentManager;
 
 impl exchange_interface::market_data::LastTrade {
     pub fn to_rest_api_last_trade(&self, instrument_manager: &InstrumentManager) -> LastTrade {
+        let instrument = match instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id) {
+            Ok(instrument) => instrument,
+            Err(_) => todo!(),
+        };
+        let instrument_key = match instrument {
+            Some(instrument_key) => instrument_key,
+            None => todo!(),
+        }.instrument_key;
+
         LastTrade {
             version_number: self.sequence_number,
-            instrument_key: instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id).unwrap().unwrap().instrument_key,
+            instrument_key,
             create_time: self.create_time,
             price: self.price,
             quantity: self.quantity,
@@ -19,9 +28,18 @@ impl exchange_interface::market_data::MarketDepth {
         let buys = self.buys.iter().map(|buy| { buy.to_rest_api_price_level() } ).collect();
         let sells = self.sells.iter().map(|sell| { sell.to_rest_api_price_level() } ).collect();
 
+        let instrument = match instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id) {
+            Ok(instrument) => instrument,
+            Err(_) => todo!(),
+        };
+        let instrument_key = match instrument {
+            Some(instrument_key) => instrument_key,
+            None => todo!(),
+        }.instrument_key;
+
         MarketDepth {
             version_number: self.sequence_number,
-            instrument_key: instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id).unwrap().unwrap().instrument_key,
+            instrument_key,
             create_time: self.create_time,
             buys,
             sells,
