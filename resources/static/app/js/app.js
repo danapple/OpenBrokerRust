@@ -184,8 +184,9 @@ function setMarketData(instrumentKey, category, data)    {
         if (oldData.version_number >= data.version_number) {
             return false;
         }
+    } else {
+        marketData[instrumentKey][category] = data;
     }
-    marketData[instrumentKey][category] = data;
     console.log("Market data = " + JSON.stringify(marketData));
     updateMarketData(instrumentKey);
 
@@ -261,9 +262,9 @@ function handlePosition(position) {
                     ", skipping update");
                 return;
             }
+        } else {
+            accounts[position.account_key]['positions'][position.instrument_key] = position;
         }
-
-        accounts[position.account_key]['positions'][position.instrument_key] = position;
         let id = computePositionRowId(position.account_key, position.instrument_key);
         deleteRow(id);
 
@@ -287,7 +288,7 @@ function handlePosition(position) {
             + "<td>" + costBasis + "</td>"
             + "<td>" + position.cost + "</td>"
             + "<td id='netliq:" + id + "'>" + "0" + "</td>"
-            + "<td id='opengain:" + id + "'>" + "N/A" + "</td>"
+            + "<td id='opengain:" + id + "'>" + "-" + "</td>"
             + "<td>" + position.closed_gain + "</td>"
             + "<td>" + actions + "</td>"
             + "</tr id=" + position.instrument_key + ">";
@@ -302,7 +303,7 @@ function handlePosition(position) {
             + "<td>" + costBasis + "</td>"
             + "<td>" + position.cost + "</td>"
             + "<td id='netliq:" + id + "'>" + "0" + "</td>"
-            + "<td id='opengain:" + id + "'>" + "N/A" + "</td>"
+            + "<td id='opengain:" + id + "'>" + "-" + "</td>"
             + "<td>" + position.closed_gain + "</td>"
             + "<td>" + actions + "</td>"
             + "</tr id=" + position.instrument_key + ">");
@@ -338,8 +339,9 @@ function handleOrderState(orderState) {
                     ", skipping update");
                 return;
             }
+        } else {
+            accounts[orderState.order.account_key]['orders'][orderState.order.ext_order_id] = orderState;
         }
-        accounts[orderState.order.account_key]['orders'][orderState.order.ext_order_id] = orderState;
 
         let id = "ord:" + orderState.order.account_key + ":" + orderState.order.ext_order_id;
         deleteRow(id);
@@ -366,12 +368,18 @@ function handleOrderState(orderState) {
         }
         let account = accounts[orderState.order.account_key];
 
+        let orderStatus = "<td";
+        if (orderState.order_status === "Rejected" && orderState.reject_reason !== null) {
+            orderStatus += " title='" + orderState.reject_reason + "'";
+        }
+        orderStatus += " >" + orderState.order_status + "</td>";
+
         $("#orders_body").append(
             "<tr id=" + id + ">"
             + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
             + "<td>"+ orderState.order.order_number + "</td>"
             + "<td title='" + description + "'>" + symbol + "</td>"
-            + "<td>" + orderState.order_status + "</td>"
+            + orderStatus
             + "<td>"+ orderState.order.quantity + "</td>"
             + "<td>"+ orderState.order.price + "</td>"
             + "<td>" + actions + "</td>"

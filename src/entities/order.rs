@@ -1,4 +1,4 @@
-use crate::dtos::order::OrderStatus;
+pub(crate) use crate::dtos::order::OrderStatus;
 
 #[derive(Clone)]
 pub struct OrderState {
@@ -6,6 +6,7 @@ pub struct OrderState {
     pub update_time: i64,
     pub order_status: OrderStatus,
     pub version_number: i64,
+    pub reject_reason: Option<String>
 }
 
 impl OrderState {

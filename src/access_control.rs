@@ -35,7 +35,7 @@ impl AccessControl {
             Ok(power_map) => power_map,
             Err(build_error) => return Err(build_error),
         };
-        info!("Got powers: {:?}", powers);
+        // info!("Got powers: {:?}", powers);
         match session.insert(SESSION_ACTOR_KEY, actor) {
             Ok(_) => { },
             Err(insert_error) => return Err(anyhow::anyhow!("set_current_actor failed to insert actor into session: {}", insert_error)),

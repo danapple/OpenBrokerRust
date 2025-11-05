@@ -4,6 +4,7 @@ use actix_session::Session;
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::HttpResponse;
 use anyhow::Error;
+use deadpool_postgres::Object;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::string::ToString;
@@ -14,7 +15,7 @@ use crate::dtos::account::Privilege;
 use crate::dtos::exchange::InstrumentStatus;
 use crate::dtos::order::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
 use crate::instrument_manager::InstrumentManager;
-use crate::persistence::dao::Dao;
+use crate::persistence::dao::{Dao, DaoError};
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
 use crate::time::current_time_millis;
 use crate::vetting::all_pass_vetter::AllPassVetter;
@@ -243,6 +244,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let mut order_state = entities::order::OrderState {
         update_time: current_time_millis(),
         order_status: OrderStatus::Pending,
+        reject_reason: None,
         order: entities_order,
         version_number: 0,
     };
@@ -250,12 +252,14 @@ pub async fn submit_order(dao: ThinData<Dao>,
     match instrument.status {
         InstrumentStatus::Active => {}
         InstrumentStatus::Inactive => {
-            order_state.order_status = OrderStatus::Rejected
+            order_state.order_status = OrderStatus::Rejected;
+            order_state.reject_reason = Some("Instrument is inactive".to_string());
         }
     }
 
     if instrument.expiration_time < current_time_millis() {
-        order_state.order_status = OrderStatus::Rejected
+        order_state.order_status = OrderStatus::Rejected;
+        order_state.reject_reason = Some("Instrument has expired".to_string());
     }
 
     let mut db_connection = match dao.get_connection().await {
@@ -283,7 +287,13 @@ pub async fn submit_order(dao: ThinData<Dao>,
         }
     };
     if order_state.order_status != OrderStatus::Pending {
-        return HttpResponse::PreconditionFailed().json(format!("instrument {} is not available for trading", first_leg_instrument_key))
+        let rest_api_order_state = match order_state.to_rest_api_order_state(account_key.as_str(), &instrument_manager) {
+            Ok(rest_api_order_state) => rest_api_order_state,
+            Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
+        };
+        return HttpResponse::Ok()
+            .content_type(APPLICATION_JSON)
+            .json(rest_api_order_state);
     }
 
     let exchange_client = match instrument_manager.get_exchange_client_for_instrument(&instrument) {
@@ -305,20 +315,16 @@ pub async fn submit_order(dao: ThinData<Dao>,
     // We'll get async notifications for all status updates other than Rejected
     if exchange_order_state.order_status == exchange_interface::order::OrderStatus::Rejected {
         order_state.order_status = OrderStatus::Rejected;
+        order_state.reject_reason = Some("Exchange reject".to_string());
         order_state.update_time = current_time_millis();
 
-        let txn = match dao.begin(&mut db_connection).await {
-            Ok(x) => x,
-            Err(dao_error) => return log_dao_error_and_return_500(dao_error),
+        match update_order_state(dao, &mut db_connection, &mut order_state).await {
+            Ok(_) => {}
+            Err(update_error) => {
+                return log_dao_error_and_return_500(update_error);
+            }
         };
-        match txn.update_order(&mut order_state).await {
-            Ok(x) => x,
-            Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-        };
-        match txn.commit().await {
-            Ok(x) => x,
-            Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-        };
+        
         let _ = send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state);
     }
 
@@ -429,18 +435,13 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     order_state.order_status = order_status_to_rest_api_order_status(exchange_order_state.order_status);
     order_state.update_time = current_time_millis();
 
-    let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
+    match update_order_state(dao, &mut db_connection, &mut order_state).await {
+        Ok(_) => {}
+        Err(update_error) => {
+            error!("Could not update order state: {}", update_error);
+        }
     };
-    match txn.update_order(&mut order_state).await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    match txn.commit().await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
+    
     let rest_api_order_state = match send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state) {
         Ok(rest_api_order_state) => rest_api_order_state,
         Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
@@ -451,9 +452,15 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         .json(rest_api_order_state)
 }
 
+async fn update_order_state(dao: ThinData<Dao>, mut db_connection: &mut Object, order_state: &mut entities::order::OrderState) -> Result<(), DaoError> {
+    let txn = dao.begin(&mut db_connection).await?;
+    txn.update_order(order_state).await?;
+    txn.commit().await
+}
+
 pub fn send_order_state(web_socket_server: &mut ThinData<WebSocketServer>,
-                        instrument_manager: &ThinData<InstrumentManager>, 
-                        account_key: &String, 
+                        instrument_manager: &ThinData<InstrumentManager>,
+                        account_key: &String,
                         order_state: &entities::order::OrderState) -> Result<OrderState, Error> {
     let rest_api_order_state = order_state.to_rest_api_order_state(account_key.as_str(), instrument_manager)?;
     let account_update = crate::trade_handling::updates::AccountUpdate {

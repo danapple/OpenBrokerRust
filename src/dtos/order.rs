@@ -59,6 +59,7 @@ pub struct OrderState {
     pub filled_quantity: i32,
     pub order: Order,
     pub version_number: i64,
+    pub reject_reason: Option<String>
 }
 
 #[derive(Debug, Deserialize, Serialize)]

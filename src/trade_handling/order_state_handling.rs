@@ -1,6 +1,7 @@
 use crate::constants::ACCOUNT_UPDATE_QUEUE_NAME;
 use crate::converters::order_converters::order_status_to_rest_api_order_status;
-use crate::exchange_interface::order::OrderState;
+use crate::entities;
+use crate::exchange_interface::order::{OrderState, OrderStatus};
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::time::current_time_millis;
@@ -12,10 +13,10 @@ use log::{error, info, warn};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub fn handle_order_state(mutex: Arc<Mutex<()>>, 
-                          dao: &Dao, 
-                          web_socket_server: &WebSocketServer, 
-                          instrument_manager: &InstrumentManager, 
+pub fn handle_order_state(mutex: Arc<Mutex<()>>,
+                          dao: &Dao,
+                          web_socket_server: &WebSocketServer,
+                          instrument_manager: &InstrumentManager,
                           order_state: OrderState) {
     info!("Order state: {:?}", order_state);
     tokio::spawn(update_order_state_loop(mutex.clone(), web_socket_server.clone(), dao.clone(), instrument_manager.clone(), order_state));
@@ -41,9 +42,9 @@ async fn update_order_state_loop(mutex: Arc<Mutex<()>>, web_socket_server: WebSo
     error!("Failed to update order state after all attempts");
 }
 
-async fn update_order_state(mutex: Arc<Mutex<()>>, 
-                            mut web_socket_server: WebSocketServer, 
-                            dao: Dao, 
+async fn update_order_state(mutex: Arc<Mutex<()>>,
+                            mut web_socket_server: WebSocketServer,
+                            dao: Dao,
                             instrument_manager: InstrumentManager,
                             order_state_orig: &OrderState) -> Result<(), Error> {
     let order_state = order_state_orig.clone();
@@ -70,6 +71,9 @@ async fn update_order_state(mutex: Arc<Mutex<()>>,
                         return Ok(())
                     }
                     db_order_state.order_status = order_status_to_rest_api_order_status(order_state.order_status);
+                    if (db_order_state.order_status == entities::order::OrderStatus::Rejected) {
+                        db_order_state.reject_reason = Some("Exchange reject".to_string());
+                    }
                     db_order_state.update_time = order_state.update_time;
                     match txn.update_order(&mut db_order_state).await {
                         Ok(x) => x,

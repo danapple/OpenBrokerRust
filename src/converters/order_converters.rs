@@ -62,6 +62,7 @@ impl entities::order::OrderState {
             order_status: self.order_status.clone(),
             filled_quantity: 0,
             version_number: self.version_number,
+            reject_reason: self.reject_reason.clone(),
             order: self.order.to_rest_api_order(account_key, instrument_manager)?,
         })
     }
