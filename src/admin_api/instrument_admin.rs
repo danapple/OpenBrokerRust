@@ -4,7 +4,7 @@ use crate::exchange_interface::exchange_client::ExchangeClient;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
-use crate::{dtos, rest_api};
+use crate::dtos;
 use actix_session::Session;
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::HttpResponse;
@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 #[post("/admin/exchange")]
 pub async fn create_exchange(dao: ThinData<Dao>,
-                             mut instrument_manager: ThinData<InstrumentManager>,
+                             instrument_manager: ThinData<InstrumentManager>,
                              access_control: ThinData<AccessControl>,
                              session: Session,
                              exchange: Json<dtos::exchange::Exchange>,

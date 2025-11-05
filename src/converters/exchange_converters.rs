@@ -16,7 +16,7 @@ impl entities::exchange::Instrument {
 }
 
 impl dtos::exchange::Exchange {
-    pub fn to_entities_exchange(&self) -> entities::exchange::Exchange {
+    pub fn to_entities_exchange(&self) -> Exchange {
         Exchange {
             exchange_id: 0,
             code: self.code.clone(),

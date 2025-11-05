@@ -63,7 +63,7 @@ impl entities::order::OrderState {
 }
 
 impl Order {
-    pub fn to_exchange_order(&self, instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::order::Order, anyhow::Error> {
+    pub fn to_exchange_order(&self, instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::order::Order, Error> {
         let mut order_legs: Vec<exchange_interface::order::OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
 
@@ -92,7 +92,7 @@ impl Order {
         Ok(order_exchange)
     }
 
-    pub fn to_entities_order(&self, account: &Account, client_order_id: String, instrument_manager: &ThinData<InstrumentManager>) -> Result<entities::order::Order, anyhow::Error> {
+    pub fn to_entities_order(&self, account: &Account, client_order_id: String, instrument_manager: &ThinData<InstrumentManager>) -> Result<entities::order::Order, Error> {
         let mut order_legs: Vec<entities::order::OrderLeg> = Vec::new();
 
         for leg in self.legs.iter() {

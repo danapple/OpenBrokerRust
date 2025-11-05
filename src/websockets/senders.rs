@@ -1,7 +1,6 @@
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::DaoTransaction;
 use crate::trade_handling::updates::AccountUpdate;
-use actix_web::web::ThinData;
 use log::error;
 use tokio::sync::mpsc::UnboundedSender;
 
