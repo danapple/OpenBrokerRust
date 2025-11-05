@@ -84,6 +84,48 @@ function getInstrumentDescription(instrument_key) {
     return instrument.description;
 }
 
+function computeMarket(instrumentKey) {
+    let instrumentData = marketData[instrumentKey];
+    console.log("Instrument data = " + JSON.stringify(instrumentData));
+    if (instrumentData === undefined) {
+        return;
+    }
+
+    let bid = undefined;
+    let bidSize = undefined;
+    let ask = undefined;
+    let askSize = undefined;
+    let last = undefined;
+
+    let depth = instrumentData['depth'];
+    if (depth !== undefined) {
+        let buys = depth['buys'];
+        let sells = depth['sells'];
+
+        if (buys !== undefined) {
+            let buys0 = buys['0'];
+            if (buys0 !== undefined) {
+                bid = buys0['price'];
+                bidSize = buys0['quantity'];
+            }
+        }
+        if (sells !== undefined) {
+            let sells0 = sells[0];
+            if (sells0 !== undefined) {
+                ask = sells0['ask'];
+                askSize = sells0['quantity'];
+            }
+        }
+    }
+
+    let lastTrade = instrumentData['lastTrade'];
+    if (lastTrade !== undefined) {
+        last = lastTrade.price;
+    }
+    let mark = computeMark(bid, ask, last);
+    return { bid: bid, bidSize: bidSize, ask: ask, askSize: askSize, last: last, mark: mark };
+}
+
 function computeMark(bid, ask, last) {
     if (bid !== undefined && ask !== undefined) {
         return (bid + ask) / 2;
@@ -101,8 +143,12 @@ function computeMark(bid, ask, last) {
 }
 
 function updatePosition(accountKey, instrumentKey, mark) {
-    console.log("accountKey: " + accountKey);
+    console.log("updatePosition accountKey " + accountKey + " and instrumentKey " + instrumentKey);
     let position = accounts[accountKey]['positions'][instrumentKey];
+    if (position === undefined) {
+        console.log("No position for accountKey " + accountKey + " and instrumentKey " + instrumentKey);
+        return;
+    }
     let id = computePositionRowId(accountKey, instrumentKey);
     let opengainid = "opengain:" + id;
     let netliqid = "netliq:" + id;
@@ -116,7 +162,6 @@ function updatePosition(accountKey, instrumentKey, mark) {
     else {
         console.log("No position netliq for: " + netliqid);
     }
-
 
     let opengain = document.getElementById(opengainid);
     if (opengain !== undefined && opengain != null) {
@@ -138,39 +183,60 @@ function updateMarketData(instrumentKey) {
 
     let instrumentData = marketData[instrumentKey];
     console.log("Instrument data = " + JSON.stringify(instrumentData));
+    let market = computeMarket(instrumentKey);
 
-    let bid = undefined;
-    let ask = undefined;
-    let last = undefined;
+    updatePositions(instrumentKey, market.mark);
 
-    let depth = instrumentData['depth'];
-    if (depth !== undefined) {
-        let buys = depth['buys'];
-        let sells = depth['sells'];
+    let marketDataId = "marketData:" + instrumentKey;
+    deleteRow(marketDataId);
+    let description = getInstrumentDescription(instrumentKey);
+    let symbol = getInstrumentSymbol(instrumentKey);
 
-        if (buys !== undefined) {
-            let buys0 = buys['0'];
-            if (buys0 !== undefined) {
-                bid = buys0['price'];
-            }
-        }
-        if (sells !== undefined) {
-            let sells0 = sells[0];
-            if (sells0 !== undefined) {
-                ask = sells0['ask'];
-            }
-        }
+    let text = "<tr id=" + marketDataId + ">";
+    text += "<td title='" + description + "'>" + symbol + "</td>"
+
+    text += "<td>";
+    if (market.bid !== undefined && market.bidSize !== undefined) {
+        text += market.bid + "@" + market.bidSize;
+    } else {
+        text += "-";
     }
+    text += "</td>";
 
-    let lastTrade = instrumentData['lastTrade'];
-    if (lastTrade !== undefined) {
-        last = lastTrade.price;
+    text += "<td>";
+    if (market.mark !== undefined) {
+        text += market.mark;
+    } else {
+        text += "-";
     }
+    text += "</td>";
 
-    let mark = computeMark(bid, ask, last);
-    console.log("mark = " + mark);
+    text += "<td>";
+    if (market.ask !== undefined && market.askSize !== undefined) {
+        text += market.ask + "@" + market.askSize;
+    } else {
+        text += "-";
+    }
+    text += "</td>";
 
-    updatePositions(instrumentKey, mark);
+    text += "<td>";
+    if (market.last != undefined) {
+        text += market.last;
+    } else {
+        text += "-";
+    }
+    text += "</td>";
+
+
+    $("#markets_table").append(text);
+
+    // let marketDataElement = document.getElementById(marketDataId);
+    // if (marketDataElement !== undefined && marketDataElement != null) {
+    //     marketDataElement.innerHTML = market;
+    // }
+    // else {
+    //     deleteRow(id);
+    // }
 }
 
 function setMarketData(instrumentKey, category, data)    {
@@ -312,8 +378,10 @@ function handlePosition(position) {
                 closePosition(position.account_key, position.instrument_key);
             });
         }
-        updatePosition(position.account_key, position.instrument_key, 3);
-
+        let market = computeMarket(position.instrument_key);
+        if (market !== undefined) {
+            updatePosition(position.account_key, position.instrument_key, market.mark);
+        }
     }
 }
 
