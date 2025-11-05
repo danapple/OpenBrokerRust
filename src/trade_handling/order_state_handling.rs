@@ -91,11 +91,17 @@ async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSoc
                             return Err(anyhow::anyhow!("Unable to commit: {}", err));
                         },
                     };
+                    let rest_api_order_state = match db_order_state.to_rest_api_order_state(account.account_key.as_str(), &instrument_manager) {
+                        Ok(rest_api_order_state) => rest_api_order_state,
+                        Err(err) => {
+                            return Err(anyhow::anyhow!("Unable to convert order_state to rest_api_order_state: {}", err));
+                        },
+                    };
                     let account_update = AccountUpdate {
                         balance: None,
                         position: None,
                         trade: None,
-                        order_state: Some(db_order_state.to_rest_api_order_state(account.account_key.as_str(), &instrument_manager)),
+                        order_state: Some(rest_api_order_state),
                     };
                     web_socket_server.send_account_message(account.account_key.as_str(), ACCOUNT_UPDATE_QUEUE_NAME, &account_update);
                 }

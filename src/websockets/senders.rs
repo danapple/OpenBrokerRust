@@ -7,15 +7,22 @@ use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn send_positions(txn: DaoTransaction<'_>, instrument_manager: &InstrumentManager, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
     let positions = match txn.get_positions(account_key).await {
-        Ok(x) => x,
+        Ok(positions) => positions,
         Err(y) => {
             error!("send_positions error while getting positions: {}", y);
             return;
         },
     };
     for position in positions.values() {
+        let rest_api_position = match position.to_rest_api_position(account_key, &instrument_manager) {
+            Ok(rest_api_position) => rest_api_position,
+            Err(convert_error) => {
+                error!("send_positions error while converting position: {}", convert_error);
+                return;
+            }
+        };
         let account_update = AccountUpdate {
-            position: Some(position.to_rest_api_position(account_key, &instrument_manager)),
+            position: Some(rest_api_position),
             balance: None,
             trade: None,
             order_state: None,
@@ -92,11 +99,18 @@ pub async fn send_orders(txn: DaoTransaction<'_>, instrument_manager: &Instrumen
     };
 
     for order_state in order_states.values() {
+        let rest_api_order_state = match order_state.to_rest_api_order_state(account_key, &instrument_manager) {
+            Ok(rest_api_order_state) => rest_api_order_state,
+            Err(convert_error) => {
+                error!("send_orders error while converting order: {}", convert_error);
+                return;
+            }
+        };
         let account_update = AccountUpdate {
             position: None,
             balance: None,
             trade: None,
-            order_state: Some(order_state.to_rest_api_order_state(account_key, &instrument_manager)),
+            order_state: Some(rest_api_order_state),
         };
         let body = match serde_json::to_string(&account_update) {
             Ok(body) => body,

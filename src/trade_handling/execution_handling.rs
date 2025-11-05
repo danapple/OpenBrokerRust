@@ -6,6 +6,7 @@ use crate::persistence::dao::Dao;
 use crate::time::current_time_millis;
 use crate::trade_handling::updates::AccountUpdate;
 use crate::websockets::server::WebSocketServer;
+use anyhow::Error;
 use log::{error, info};
 use std::ops::Neg;
 use std::sync::Arc;
@@ -154,9 +155,16 @@ async fn handle_execution_thread(mutex: Arc<Mutex<()>>, mut web_socket_server: W
             return;
         },
     };
+    let rest_api_position = match position.to_rest_api_position(account.account_key.as_str(), &instrument_manager) {
+        Ok(rest_api_position) => rest_api_position,
+        Err(err) => {
+            error!("Unable to convert position to rest_api_position: {}", err);
+            return;
+        },
+    };
     let account_update = AccountUpdate {
         balance: Some(balance.to_rest_api_balance(account.account_key.as_str())),
-        position: Some(position.to_rest_api_position(account.account_key.as_str(), &instrument_manager)),
+        position: Some(rest_api_position),
         trade: None,
         order_state: None,
     };

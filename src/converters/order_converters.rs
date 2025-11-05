@@ -4,6 +4,7 @@ use crate::instrument_manager::InstrumentManager;
 use crate::time::current_time_millis;
 use crate::{entities, exchange_interface};
 use actix_web::web::ThinData;
+use anyhow::Error;
 use uuid::Uuid;
 
 pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::order::OrderStatus)
@@ -18,29 +19,26 @@ pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::o
 }
 
 impl entities::order::OrderLeg {
-    pub fn to_rest_api_order_leg(&self, instrument_manager: &InstrumentManager) -> OrderLeg {
-        let instrument = match instrument_manager.get_instrument_by_exchange_instrument_id(self.instrument_id) {
-            Ok(instrument) => instrument,
-            Err(_) => todo!(),
-        };
+    pub fn to_rest_api_order_leg(&self, instrument_manager: &InstrumentManager) -> Result<OrderLeg, Error> {
+        let instrument = instrument_manager.get_instrument(self.instrument_id)?;
         let instrument_key = match instrument {
             Some(instrument_key) => instrument_key,
-            None => todo!(),
+            None => return Err(anyhow::anyhow!("No instrument for instrument id {}", self.instrument_id))
         }.instrument_key;
-        OrderLeg {
+        Ok(OrderLeg {
             instrument_key,
             ratio: self.ratio,
-        }
+        })
     }
 }
 
 impl entities::order::Order {
-    pub fn to_rest_api_order(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Order {
+    pub fn to_rest_api_order(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Result<Order, Error> {
         let mut order_legs: Vec<OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
-            order_legs.push(leg.to_rest_api_order_leg(instrument_manager));
+            order_legs.push(leg.to_rest_api_order_leg(instrument_manager)?);
         };
-        Order {
+        Ok(Order {
             create_time: self.create_time,
             order_number: Some(self.order_number),
             ext_order_id: Some(self.ext_order_id.clone()),
@@ -48,19 +46,19 @@ impl entities::order::Order {
             price: self.price,
             quantity: self.quantity,
             legs: order_legs,
-        }
+        })
     }
 }
 
 impl entities::order::OrderState {
-    pub fn to_rest_api_order_state(&self, account_key: &str, instrument_manager: &InstrumentManager) -> OrderState {
-        OrderState{
+    pub fn to_rest_api_order_state(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Result<OrderState, Error> {
+        Ok(OrderState{
             update_time: self.update_time,
             order_status: self.order_status.clone(),
             filled_quantity: 0,
             version_number: self.version_number,
-            order: self.order.to_rest_api_order(account_key, instrument_manager),
-        }
+            order: self.order.to_rest_api_order(account_key, instrument_manager)?,
+        })
     }
 }
 

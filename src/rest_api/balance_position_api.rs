@@ -1,6 +1,6 @@
 use crate::access_control::AccessControl;
 use crate::constants::APPLICATION_JSON;
-use crate::dtos::account::Privilege;
+use crate::dtos::account::{Position, Privilege};
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api;
@@ -8,6 +8,7 @@ use crate::rest_api::base_api::log_dao_error_and_return_500;
 use actix_session::Session;
 use actix_web::web::{Path, ThinData};
 use actix_web::{HttpRequest, HttpResponse};
+use anyhow::Error;
 use log::error;
 use std::collections::HashMap;
 
@@ -48,7 +49,16 @@ pub async fn get_positions(dao: ThinData<Dao>,
     };
     let mut rest_api_positions = HashMap::new();
     for position in positions.values() {
-        rest_api_positions.insert(position.position_id, position.to_rest_api_position(account_key, &instrument_manager));
+        let rest_api_position = match position.to_rest_api_position(account_key, &instrument_manager) {
+            Ok(rest_api_position) => rest_api_position,
+            Err(y) => {
+                error!("get_positions error: {}", y);
+                return HttpResponse::NotFound()
+                    .content_type(APPLICATION_JSON)
+                    .finish();
+            },
+        };
+        rest_api_positions.insert(position.position_id, rest_api_position);
     }
 
     HttpResponse::Ok()
