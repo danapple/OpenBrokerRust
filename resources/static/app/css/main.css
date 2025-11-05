@@ -2,23 +2,40 @@
 @import url("https://fonts.googleapis.com/css?family=Poppins:400,500&display=swap");
 
 body {
-    background-color: #f5f5f5;
+    background-color: #04042a;
 }
 
-#main-content {
+.main-style {
     font-size: 24px;
-    padding: 2em 3em;
+    //padding: 2em 3em;
     margin: 0 auto 20px;
-    background-color: #222;
+    /*background-color: #04042a;*/
     color: white;
-    border: 1px solid #e5e5e5;
+    /*border: 1px solid #e5e5e5;*/
    <!-- -webkit-border-radius: 5px;-->
    <!-- -moz-border-radius: 5px;-->
     border-radius: 5px;
 }
+#td {
+    font-family: ui-monospace;
+}
+
+.grid {
+    display: grid;
+    height: 100px;
+    grid-template-columns: 1fr 1fr;
+}
+
+.right-align {
+    text-align: right;
+}
+
+.left-align {
+    text-align: left;
+}
 
 .password-toggle-icon {
-    position: absolute;
+    margin-top: 20px;
     top: 50%;
     right: 10px;
     transform: translateY(-50%);
@@ -28,11 +45,10 @@ body {
 .password-toggle-icon i {
     font-size: 18px;
     line-height: 1;
-    color: #333;
+    color: #88f;
     transition: color 0.3s ease-in-out;
-    margin-bottom: 20px;
 }
 
 .password-toggle-icon i:hover {
-    color: #000;
+    color: #fff;
 }

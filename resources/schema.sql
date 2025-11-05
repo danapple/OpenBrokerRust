@@ -95,19 +95,19 @@ CREATE TABLE IF NOT EXISTS offer (
 CREATE TABLE IF NOT EXISTS actor (
     actorId SERIAL PRIMARY KEY,
     actorName VARCHAR NOT NULL,
-    emailAddress VARCHAR NOT NULL,
+    emailAddress VARCHAR UNIQUE NOT NULL,
     offerId INT NULL REFERENCES offer
 );
 
 CREATE TABLE IF NOT EXISTS login_info (
     loginInfoId SERIAL PRIMARY KEY,
-    actorId INT NOT NULL REFERENCES actor,
+    actorId INT NOT NULL UNIQUE REFERENCES actor,
     passwordHash VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS api_key (
     apiKeyId SERIAL PRIMARY KEY,
-    actorId INT NOT NULL REFERENCES actor,
+    actorId INT NOT NULL UNIQUE REFERENCES actor,
     apiKey VARCHAR UNIQUE NOT NULL
 );
 

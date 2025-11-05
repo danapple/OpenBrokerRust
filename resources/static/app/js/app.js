@@ -153,22 +153,27 @@ function updatePosition(accountKey, instrumentKey, mark) {
     let opengainid = "opengain:" + id;
     let netliqid = "netliq:" + id;
 
-    let netLiq = (position.quantity * mark);
-
     let netLiqElement = document.getElementById(netliqid);
-    if (netLiqElement !== undefined && netLiqElement != null) {
-        netLiqElement.innerHTML = netLiq.toFixed(2);
-    }
-    else {
-        console.log("No position netliq for: " + netliqid);
-    }
+    let openGainElement = document.getElementById(opengainid);
 
-    let opengain = document.getElementById(opengainid);
-    if (opengain !== undefined && opengain != null) {
-        opengain.innerHTML = (netLiq - position.cost).toFixed(2)
-    }
-    else {
-        console.log("No position open gain for: " + opengainid);
+    let netLiq = '-';
+    if (mark !== undefined) {
+        netLiq = (position.quantity * mark);
+        if (netLiqElement !== undefined && netLiqElement != null) {
+            netLiqElement.innerHTML = netLiq.toFixed(2);
+        }
+        else {
+            console.log("No position netliq for: " + netliqid);
+        }
+        if (openGainElement !== undefined && openGainElement != null) {
+            openGainElement.innerHTML = (netLiq - position.cost).toFixed(2)
+        } else {
+            console.log("No position open gain for: " + opengainid);
+        }
+    } else {
+        netLiqElement.innerHTML = "-";
+        openGainElement.innerHTML = "-";
+
     }
 
 }
@@ -197,7 +202,7 @@ function updateMarketData(instrumentKey) {
 
     text += "<td>";
     if (market.bid !== undefined && market.bidSize !== undefined) {
-        text += market.bid + "@" + market.bidSize;
+        text += market.bid.toFixed(2) + "@" + market.bidSize;
     } else {
         text += "-";
     }
@@ -205,7 +210,7 @@ function updateMarketData(instrumentKey) {
 
     text += "<td>";
     if (market.mark !== undefined) {
-        text += market.mark;
+        text += market.mark.toFixed(2);
     } else {
         text += "-";
     }
@@ -213,7 +218,7 @@ function updateMarketData(instrumentKey) {
 
     text += "<td>";
     if (market.ask !== undefined && market.askSize !== undefined) {
-        text += market.ask + "@" + market.askSize;
+        text += market.ask.toFixed(2) + "@" + market.askSize;
     } else {
         text += "-";
     }
@@ -221,7 +226,7 @@ function updateMarketData(instrumentKey) {
 
     text += "<td>";
     if (market.last != undefined) {
-        text += market.last;
+        text += market.last.toFixed(2);
     } else {
         text += "-";
     }
@@ -289,7 +294,7 @@ function handleBalance(balance) {
             + "<td></td>"
             + "<td></td>"
             + "<td></td>"
-            + "<td>" + (balance.cash).toFixed(2) + "</td>"
+            + "<td class='.right-align'>" + (balance.cash).toFixed(2) + "</td>"
             + "<td></td>"
             + "<td></td>"
             + "</tr>");
@@ -342,37 +347,27 @@ function handlePosition(position) {
         let costBasis = 0;
         if (position.quantity !== 0) {
             costBasis = (position.cost / position.quantity).toFixed(2);
-            actions += "<td>  <button id='" + closeButtonId + "' class=\"btn btn-default\" type=\"submit\">Close</button>\n </td>";
+            actions += "<button id='" + closeButtonId + "' class=\"btn btn-default\" type=\"submit\">Close</button>";
         }
 
         let account = accounts[position.account_key];
 
-        let position_body = "<tr id=" + id + ">"
+        let position_body =
+            "<tr id=" + id + ">"
             + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
             + "<td title='" + description + "'>" + symbol + "</td>"
-            + "<td>" + position.quantity + "</td>"
-            + "<td>" + costBasis + "</td>"
-            + "<td>" + position.cost + "</td>"
-            + "<td id='netliq:" + id + "'>" + "0" + "</td>"
-            + "<td id='opengain:" + id + "'>" + "-" + "</td>"
-            + "<td>" + position.closed_gain + "</td>"
-            + "<td>" + actions + "</td>"
+            + "<td class='right-align'>" + position.quantity + "</td>"
+            + "<td class='right-align'>" + costBasis + "</td>"
+            + "<td class='right-align'>" + position.cost.toFixed(2) + "</td>"
+            + "<td id='netliq:" + id + "' class='right-align'>" + "0" + "</td>"
+            + "<td id='opengain:" + id + "' class='right-align'>" + "-" + "</td>"
+            + "<td class='right-align'>" + position.closed_gain.toFixed(2) + "</td>"
+            + "<td class='right-align'>" + actions + "</td>"
             + "</tr id=" + position.instrument_key + ">";
 
         console.log(position_body);
 
-        $("#positions_body").append(
-            "<tr id=" + id + ">"
-            + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
-            + "<td title='" + description + "'>" + symbol + "</td>"
-            + "<td>" + position.quantity + "</td>"
-            + "<td>" + costBasis + "</td>"
-            + "<td>" + position.cost + "</td>"
-            + "<td id='netliq:" + id + "'>" + "0" + "</td>"
-            + "<td id='opengain:" + id + "'>" + "-" + "</td>"
-            + "<td>" + position.closed_gain + "</td>"
-            + "<td>" + actions + "</td>"
-            + "</tr id=" + position.instrument_key + ">");
+        $("#positions_body").append(position_body);
         if (position.quantity !== 0) {
             document.getElementById(closeButtonId).addEventListener("click", () => {
                 closePosition(position.account_key, position.instrument_key);
@@ -444,12 +439,12 @@ function handleOrderState(orderState) {
 
         $("#orders_body").append(
             "<tr id=" + id + ">"
-            + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
-            + "<td>"+ orderState.order.order_number + "</td>"
-            + "<td title='" + description + "'>" + symbol + "</td>"
+            + "<td title='" + account.account_name + "' class='right-align'>"+ account.account_number + "</td>"
+            + "<td class='right-align'>"+ orderState.order.order_number + "</td>"
+            + "<td title='" + description + "' class='right-align'>" + symbol + "</td>"
             + orderStatus
-            + "<td>"+ orderState.order.quantity + "</td>"
-            + "<td>"+ orderState.order.price + "</td>"
+            + "<td class='right-align'>"+ orderState.order.quantity + "</td>"
+            + "<td class='right-align'>"+ orderState.order.price.toFixed(2) + "</td>"
             + "<td>" + actions + "</td>"
             + "</td>");
 
@@ -486,7 +481,8 @@ function processAccounts(account_data) {
         $("#accounts_body").append(
             "<tr>"
             + "<td>"+ account.account_number + "</td>"
-            + "<td>" + account.account_name + "</td>");
+            + "<td>" + account.account_name + "</td>"
+            + "<td>" + account.nickname + "</td>");
         subscribeAccount(account.account_key, handleUpdate);
         var opt = document.createElement('option');
         opt.value = account.account_key;

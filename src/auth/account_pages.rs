@@ -25,7 +25,7 @@ pub async fn welcome(
 pub struct RegisterData {
     pub offer_code: String,
     pub email_address: String,
-    pub password: String,
+    pub register_password: String,
     pub actor_name: String,
 }
 
@@ -52,7 +52,7 @@ pub async fn register(dao: ThinData<Dao>,
     if !offer_code_valid {
         return HttpResponse::SeeOther().append_header((LOCATION, "/")).finish()
     }
-    let password_hash = match hash_password(config.password_key.as_str(), data.password.as_str()) {
+    let password_hash = match hash_password(config.password_key.as_str(), data.register_password.as_str()) {
         Ok(password_hash) => password_hash,
         Err(hash_error) => return log_text_error_and_return_500(format!("Could not hash password: {}", hash_error)),
     };
@@ -119,7 +119,7 @@ pub async fn loginapi(
 #[derive(Debug, Deserialize)]
 pub struct LoginData {
     pub email: String,
-    pub password: String,
+    pub login_password: String,
 }
 
 #[post("/login")]
@@ -149,7 +149,7 @@ pub async fn login(
             return log_text_error_and_return_500(format!("Password could not be retrieved for {}", data.email)),
     };
 
-    let password_verified = match verify_password(config.password_key.as_str(), actor_password_hash.as_str(), data.password.as_str()) {
+    let password_verified = match verify_password(config.password_key.as_str(), actor_password_hash.as_str(), data.login_password.as_str()) {
         Ok(password_verified) => password_verified,
         Err(verification_error) =>
             return log_text_error_and_return_500(format!("Error verifying password for {}: {}", data.email, verification_error)),

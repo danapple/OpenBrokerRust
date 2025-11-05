@@ -6,7 +6,6 @@
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title></title>
   <link rel="stylesheet" href="app/css/main.css">
   <meta name="description" content="">
 
@@ -38,7 +37,7 @@
   enabled. Please enable
   Javascript and reload this page!</h2></noscript>
 
-<div id="main-content" class="container">
+<div id="main-content" class="main-style">
   <div id="submit-data" class="container">
     <div class="col-md-12">
       <form>
@@ -49,7 +48,7 @@
         <select name="order_instrument" id="order_instrument">
         </select>
         <label for="order_quantity">Quantity</label>
-        <input id="order_quantity" required type="number"/>
+        <input id="order_quantity" size="3" required type="number"/>
         <label for="order_price">Price</label>
         <input id="order_price" required type="number"  min=".01"/>
         <input id="order_submit" type="button" value="Submit"/>
@@ -62,10 +61,31 @@
         <table id="accounts_table" class="table table-striped">
           <thead>
           <tr>
-            <th>Accounts</th>
+            <th class='right-align'>Account</th>
+            <th class='right-align'>Name</th>
+            <th class='right-align'>Nickname</th>
           </tr>
           </thead>
           <tbody id="accounts_body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <div class="row">
+      <div class="col-md-12">
+        <table id="markets_table" class="table table-striped">
+          <thead>
+          <tr>
+            <th>Instrument</th>
+            <th class='right-align'>Bid</th>
+            <th class='right-align'>Mark</th>
+            <th class='right-align'>Ask</th>
+            <th class='right-align'>Last</th>
+          </tr>
+          </thead>
+          <tbody id="markets_body">
           </tbody>
         </table>
       </div>
@@ -75,15 +95,15 @@
         <table id="positions_table" class="sortable">
           <thead>
           <tr>
-            <th>Account</th>
-            <th>Instrument</th>
-            <th>Quantity</th>
-            <th>Cost Basis</th>
-            <th>Cost</th>
-            <th>NetLiq</th>
-            <th>Open Gain</th>
-            <th>Closed Gain</th>
-            <th>Action</th>
+            <th class='right-align'>Account</th>
+            <th class='right-align'>Instrument</th>
+            <th class='right-align'>Quantity</th>
+            <th class='right-align'>Cost Basis</th>
+            <th class='right-align'>Cost</th>
+            <th class='right-align'>NetLiq</th>
+            <th class='right-align'>Open Gain</th>
+            <th class='right-align'>Closed Gain</th>
+            <th class='right-align'>Action</th>
           </tr>
           </thead>
           <tbody id="positions_body">
@@ -96,12 +116,12 @@
         <table id="orders_table" class="sortable">
           <thead>
           <tr>
-            <th>Account</th>
+            <th class='right-align'>Account</th>
             <th class="sorttable_numeric">Order Number</th>
-            <th>Instrument</th>
-            <th>Status</th>
-            <th>Quantity</th>
-            <th>Price</th>
+            <th class='right-align'>Instrument</th>
+            <th class='right-align'>Status</th>
+            <th class='right-align'>Quantity</th>
+            <th class='right-align'>Price</th>
             <th>Action</th>
           </tr>
           </thead>
@@ -109,24 +129,6 @@
           </tbody>
         </table>
       </div>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="col-md-12">
-      <table id="markets_table" class="table table-striped">
-        <thead>
-        <tr>
-          <th>Instrument</th>
-          <th>Bid</th>
-          <th>Mark</th>
-          <th>Ask</th>
-          <th>Last</th>
-        </tr>
-        </thead>
-        <tbody id="markets_body">
-        </tbody>
-      </table>
     </div>
   </div>
 
