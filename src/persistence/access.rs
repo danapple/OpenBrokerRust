@@ -5,7 +5,8 @@ use std::str::FromStr;
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn get_accesses_for_actor(&self, actor_id: i32) -> Result<Vec<Access>, DaoError> {
+    pub async fn get_accesses_for_actor(&self, 
+                                        actor_id: i32) -> Result<Vec<Access>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ACCESS_QUERY);
         query_string.push_str("WHERE actor.actorId = $1 ");
@@ -27,7 +28,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(accesses)
     }
 
-    fn convert_row_to_access(&self, row: &Row) -> Result<Access, DaoError> {
+    fn convert_row_to_access(&self, 
+                             row: &Row) -> Result<Access, DaoError> {
         let row_privilege = row.get("privilege");
 
         let privilege_result = Privilege::from_str(row_privilege);

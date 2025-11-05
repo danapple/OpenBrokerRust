@@ -121,7 +121,8 @@ impl WsHandler {
         }
     }
 
-    async fn start(&mut self, ws_session: &mut Session) {
+    async fn start(&mut self,
+                   ws_session: &mut Session) {
         info!("Websocket connected");
         let mut last_heartbeat = Instant::now();
         let mut interval = interval(HEARTBEAT_INTERVAL);
@@ -193,7 +194,9 @@ impl WsHandler {
             }
         };
     }
-    async fn send_queue_item(&mut self, session: &mut Session, queue_item: QueueItem) -> Result<(), Closed> {
+    async fn send_queue_item(&mut self,
+                             session: &mut Session,
+                             queue_item: QueueItem) -> Result<(), Closed> {
         let subscription_id_options = self.subscriptions.get_by_left(&queue_item.destination);
         let subscription_id = match subscription_id_options {
             Some(subscription_id) => subscription_id,
@@ -209,7 +212,8 @@ impl WsHandler {
     }
 
 
-    async fn validate_subscription(&self, destination: &String) -> bool {
+    async fn validate_subscription(&self,
+                                   destination: &String) -> bool {
         let account_key_result = extract_account_key(destination);
         let account_key = match account_key_result {
             Ok(account_key) => account_key,
@@ -229,7 +233,8 @@ impl WsHandler {
     }
 
 
-    fn unsubscribe_all(&mut self, conn_tx: &UnboundedSender<QueueItem>) {
+    fn unsubscribe_all(&mut self,
+                       conn_tx: &UnboundedSender<QueueItem>) {
         let mut ids_to_remove = Vec::new();
         let immutable_subscriptions = self.subscriptions.clone();
         {
@@ -242,7 +247,9 @@ impl WsHandler {
         }
     }
 
-    fn unsubscribe(&mut self, conn_tx: &UnboundedSender<QueueItem>, id: String) {
+    fn unsubscribe(&mut self,
+                   conn_tx: &UnboundedSender<QueueItem>,
+                   id: String) {
         let destination = match self.subscriptions.remove_by_right(&id) {
             Some(destination) => destination,
             None => {
@@ -278,7 +285,9 @@ impl WsHandler {
     }
 
 
-    async fn send_content(&self, conn_tx: UnboundedSender<QueueItem>, content: SendContent)  -> Result<(), Closed> {
+    async fn send_content(&self,
+                          conn_tx: UnboundedSender<QueueItem>,
+                          content: SendContent)  -> Result<(), Closed> {
         if !self.validate_subscription(&content.destination).await {
             error!("Request to send for forbidden destination {} {}", content.destination, content.body);
             return Err(Closed);
@@ -314,7 +323,9 @@ impl WsHandler {
         Ok(())
     }
 
-    async fn parse_text_message(&mut self, session: &mut Session, conn_tx: &UnboundedSender<QueueItem>,
+    async fn parse_text_message(&mut self,
+                                session: &mut Session,
+                                conn_tx: &UnboundedSender<QueueItem>,
                                 text: &String) -> Result<(), Error> {
         debug!("Text message {}", text);
         let parsed_message_result = parse_message(&text.to_string());
@@ -362,7 +373,9 @@ impl WsHandler {
         }
     }
 
-    async fn handle_subscribe(&mut self, conn_tx: &UnboundedSender<QueueItem>, sub: &SubscribeContent) -> Result<(), Closed> {
+    async fn handle_subscribe(&mut self,
+                              conn_tx: &UnboundedSender<QueueItem>,
+                              sub: &SubscribeContent) -> Result<(), Closed> {
         if sub.destination.starts_with("/accounts/") {
             if !self.validate_subscription(&sub.destination).await {
                 error!("Request for forbidden destination {}", sub.destination);
@@ -439,7 +452,12 @@ fn extract_account_key(destination: &String) -> Result<String, anyhow::Error> {
     Ok(account_key)
 }
 
-async fn send_get(dao: ThinData<Dao>, instrument_manager: ThinData<InstrumentManager>, conn_tx: UnboundedSender<QueueItem>, destination: &String, account_key: &String, scope: Scope) {
+async fn send_get(dao: ThinData<Dao>,
+                  instrument_manager: ThinData<InstrumentManager>,
+                  conn_tx: UnboundedSender<QueueItem>,
+                  destination: &String,
+                  account_key: &String,
+                  scope: Scope) {
     let mut db_connection = match dao.get_connection().await {
         Ok(db_connection) => db_connection,
         Err(dao_error) => {

@@ -30,8 +30,7 @@ pub struct RegisterData {
 }
 
 #[post("/register")]
-pub async fn register(
-                      dao: ThinData<Dao>,
+pub async fn register(dao: ThinData<Dao>,
                       config: ThinData<BrokerConfig>,
                       req: HttpRequest,
                       data: web::Form<RegisterData>,
@@ -181,8 +180,7 @@ pub async fn login(
 #[get("/logmeout")]
 pub async fn logout(
     session: Session,
-    req: HttpRequest,
-) -> HttpResponse {
+    req: HttpRequest) -> HttpResponse {
     session.clear();
     // TODO terminate websockets
     match is_json_request(&req) {

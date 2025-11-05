@@ -8,7 +8,8 @@ use strum::IntoEnumIterator;
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn save_order(&self, mut order_state: OrderState) -> Result<OrderState, DaoError> {
+    pub async fn save_order(&self, 
+                            mut order_state: OrderState) -> Result<OrderState, DaoError> {
 
         let order_number_row = match self.transaction.query_one(
             "INSERT INTO order_number_generator \
@@ -90,7 +91,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(order_state)
     }
 
-    pub async fn update_order(&self, order_state: &mut OrderState) -> Result<(), DaoError> {
+    pub async fn update_order(&self, 
+                              order_state: &mut OrderState) -> Result<(), DaoError> {
         let next_version_number = order_state.version_number + 1;
         let rows_updated = match self.transaction.execute(
             "UPDATE order_state \
@@ -122,7 +124,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(())
     }
 
-    async fn insert_order_state_history(&self, order_state: &OrderState) -> Result<u64, DaoError> {
+    async fn insert_order_state_history(&self, 
+                                        order_state: &OrderState) -> Result<u64, DaoError> {
         match self.transaction.execute(
             "INSERT INTO order_state_history \
                 (orderId, orderStatus, createTime, versionNumber) \
@@ -139,7 +142,8 @@ impl<'b> DaoTransaction<'b> {
         }
     }
 
-    pub async fn get_orders(&self, account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
+    pub async fn get_orders(&self, 
+                            account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
         let mut open_statuses = Vec::new();
         for order_status in OrderStatus::iter() {
             if (is_order_status_open(&order_status)) {
@@ -169,7 +173,9 @@ impl<'b> DaoTransaction<'b> {
         }
     }
 
-    pub async fn get_order_by_ext_order_id(&self, account_key: &String, ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
+    pub async fn get_order_by_ext_order_id(&self, 
+                                           account_key: &String, 
+                                           ext_order_id: &String) -> Result<Option<OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
         query_string.push_str("WHERE account.accountKey = $1 AND base.extOrderId = $2");
@@ -199,7 +205,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(order_state)
     }
 
-    pub(crate) async fn get_order_by_client_order_id(&self, client_order_id: &String) -> Result<Option<OrderState>, DaoError> {
+    pub(crate) async fn get_order_by_client_order_id(&self, 
+                                                     client_order_id: &String) -> Result<Option<OrderState>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ORDER_QUERY);
         query_string.push_str(" WHERE base.clientOrderId = $1");
@@ -251,7 +258,8 @@ fn convert_rows_to_order_states(res: Vec<Row>) -> Result<HashMap<String, OrderSt
     Ok(order_states)
 }
 
-fn add_leg_to_order_state(order_state: &mut OrderState, row: &Row) {
+fn add_leg_to_order_state(order_state: &mut OrderState, 
+                          row: &Row) {
     let leg = OrderLeg {
         order_leg_id: row.get("orderLegId"),
         instrument_id: row.get("instrumentId"),

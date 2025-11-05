@@ -4,7 +4,8 @@ use crate::exchange_interface;
 use uuid::Uuid;
 
 impl exchange_interface::instrument::Instrument {
-    pub fn to_entities_instrument(&self, exchange_id: i32) -> Instrument {
+    pub fn to_entities_instrument(&self, 
+                                  exchange_id: i32) -> Instrument {
         Instrument {
             instrument_id: 0,
             instrument_key: Uuid::new_v4().simple().to_string(),

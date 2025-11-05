@@ -4,7 +4,8 @@ use log::error;
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn update_balance(&self, balance: &mut Balance) -> Result<(), DaoError> {
+    pub async fn update_balance(&self, 
+                                balance: &mut Balance) -> Result<(), DaoError> {
         let next_version_number = balance.version_number + 1;
         let rows_updated = match self.transaction.execute(BALANCE_UPDATE_STATEMENT,
                                                           &[
@@ -26,7 +27,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(())
     }
 
-    pub async fn get_balance(&self, account_key: &String) -> Result<Balance, DaoError> {
+    pub async fn get_balance(&self, 
+                             account_key: &String) -> Result<Balance, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(BALANCE_QUERY);
         query_string.push_str(" WHERE account.accountKey = $1");

@@ -2,7 +2,8 @@ use crate::dtos::market_data::{LastTrade, MarketDepth, PriceLevel};
 use crate::exchange_interface;
 
 impl exchange_interface::market_data::LastTrade {
-    pub fn to_rest_api_last_trade(&self, instrument_key: String) -> LastTrade {
+    pub fn to_rest_api_last_trade(&self, 
+                                  instrument_key: String) -> LastTrade {
                 LastTrade {
             version_number: self.sequence_number,
             instrument_key,
@@ -14,7 +15,8 @@ impl exchange_interface::market_data::LastTrade {
 }
 
 impl exchange_interface::market_data::MarketDepth {
-    pub fn to_rest_api_market_depth(&self, instrument_key: String) -> MarketDepth {
+    pub fn to_rest_api_market_depth(&self, 
+                                    instrument_key: String) -> MarketDepth {
         let buys = self.buys.iter().map(|buy| { buy.to_rest_api_price_level() } ).collect();
         let sells = self.sells.iter().map(|sell| { sell.to_rest_api_price_level() } ).collect();
 

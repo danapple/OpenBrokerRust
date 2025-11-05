@@ -7,7 +7,8 @@ use tokio_postgres::Row;
 
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn save_exchange(&self, exchange: &mut Exchange) -> Result<(), DaoError> {
+    pub async fn save_exchange(&self, 
+                               exchange: &mut Exchange) -> Result<(), DaoError> {
         let row = match self.transaction.query_one(
             "INSERT INTO exchange \
             (code, url, websocketUrl, description, apiKey) \
@@ -30,7 +31,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(())
     }
 
-    pub async fn get_exchange(&self, exchange_code: &str) -> Result<Exchange, DaoError> {
+    pub async fn get_exchange(&self, 
+                              exchange_code: &str) -> Result<Exchange, DaoError> {
         let row = match self.transaction.query_one(
             "SELECT exchangeId, code, url, websocketUrl, description, apiKey FROM exchange \
             WHERE code = $1",
@@ -66,7 +68,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(exchanges)
     }
 
-    pub async fn save_instrument(&self, instrument: &mut Instrument) -> Result<(), DaoError> {
+    pub async fn save_instrument(&self, 
+                                 instrument: &mut Instrument) -> Result<(), DaoError> {
         let row = match self.transaction.query_one(
             "INSERT INTO instrument \
             (instrumentKey, exchangeId, exchangeInstrumentId, status, symbol, assetClass, description, expirationTime) \

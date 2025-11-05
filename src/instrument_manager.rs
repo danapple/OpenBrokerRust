@@ -28,7 +28,8 @@ struct ExchangeHolder {
 }
 
 impl InstrumentManager {
-    pub fn new (dao: Dao, web_socket_server: WebSocketServer) -> Self {
+    pub fn new (dao: Dao, 
+                web_socket_server: WebSocketServer) -> Self {
         InstrumentManager {
             dao,
             web_socket_server,
@@ -64,7 +65,8 @@ impl InstrumentManager {
         }
     }
 
-    async fn load_exchanges(&self, txn: &DaoTransaction<'_>)  -> Result<(), Error> {
+    async fn load_exchanges(&self, 
+                            txn: &DaoTransaction<'_>)  -> Result<(), Error> {
         let exchanges = match txn.get_exchanges().await {
             Ok(exchanges) => exchanges,
             Err(dao_error) => return Err(anyhow::anyhow!("Could not get_exchanges: {}", dao_error)),
@@ -80,7 +82,8 @@ impl InstrumentManager {
         Ok(())
     }
 
-    async fn load_instruments(&mut self, txn: &DaoTransaction<'_>) -> Result<(), Error> {
+    async fn load_instruments(&mut self, 
+                              txn: &DaoTransaction<'_>) -> Result<(), Error> {
         let instruments = match txn.get_instruments().await {
             Ok(x) => x,
             Err(dao_error) => return Err(anyhow::anyhow!("Could not get instruments: {}", dao_error)),
@@ -98,7 +101,8 @@ impl InstrumentManager {
         Ok(())
     }
 
-    pub async fn setup_exchange(&self, exchange: Exchange) -> Result<(), Error> {
+    pub async fn setup_exchange(&self, 
+                                exchange: Exchange) -> Result<(), Error> {
         let exchange_client = ExchangeClient::new(exchange.url.as_str(), exchange.api_key.as_str());
         let exchange_websocket_client = ExchangeWebsocketClient::new(exchange.websocket_url.clone(),
                                                                      exchange.api_key.clone(),
@@ -123,7 +127,8 @@ impl InstrumentManager {
         Ok(())
     }
 
-    pub fn get_exchange_client_for_instrument(&self, instrument: &Instrument) -> Result<Arc<ExchangeClient>, Error> {
+    pub fn get_exchange_client_for_instrument(&self, 
+                                              instrument: &Instrument) -> Result<Arc<ExchangeClient>, Error> {
         let readable_exchanges = match self.exchanges_holders_by_id.read() {
             Ok(readable_exchanges) => readable_exchanges,
             Err(readable_error) => return Err(anyhow::anyhow!("Unable to get read access to exchanges: {}", readable_error)),
@@ -134,7 +139,8 @@ impl InstrumentManager {
         }
     }
 
-    pub fn get_exchange_for_instrument(&self, instrument: &Instrument) -> Result<Arc<Exchange>, Error> {
+    pub fn get_exchange_for_instrument(&self, 
+                                       instrument: &Instrument) -> Result<Arc<Exchange>, Error> {
         let readable_exchanges = match self.exchanges_holders_by_id.read() {
             Ok(readable_exchanges) => readable_exchanges,
             Err(readable_error) => return Err(anyhow::anyhow!("Unable to get read access to exchanges: {}", readable_error)),
@@ -145,7 +151,8 @@ impl InstrumentManager {
         }
     }
 
-    pub fn add_instrument(&mut self, instrument: &Instrument) -> Result<(), Error> {
+    pub fn add_instrument(&mut self, 
+                          instrument: &Instrument) -> Result<(), Error> {
         let mut writable_instruments = match self.instruments.write() {
             Ok(writable_instruments) => writable_instruments,
             Err(writable_error) => return Err(anyhow::anyhow!("Unable to get write access to instruments: {}", writable_error)),
@@ -166,7 +173,8 @@ impl InstrumentManager {
         Ok(())
     }
 
-    pub fn get_instrument(&self, instrument_id: i64) -> Result<Option<Instrument>, Error> {
+    pub fn get_instrument(&self, 
+                          instrument_id: i64) -> Result<Option<Instrument>, Error> {
         let instruments = match self.instruments.read() {
             Ok(x) => x,
             Err(writable_error) => return Err(anyhow::anyhow!("get_instrument unable to get read access to instruments: {}", writable_error)),
@@ -177,7 +185,8 @@ impl InstrumentManager {
         }
     }
 
-    pub fn get_instrument_by_key(&self, instrument_key: &str) -> Result<Option<Instrument>, Error> {
+    pub fn get_instrument_by_key(&self, 
+                                 instrument_key: &str) -> Result<Option<Instrument>, Error> {
         let instruments_by_key = match self.instruments_by_key.read() {
             Ok(instruments_by_key) => instruments_by_key,
             Err(writable_error) => return Err(anyhow::anyhow!("get_instrument unable to get read access to instruments_by_key: {}", writable_error)),
@@ -188,7 +197,8 @@ impl InstrumentManager {
         }
     }
 
-    pub fn get_instrument_by_exchange_instrument_id(&self, exchange_instrument_id: i64) -> Result<Option<Instrument>, anyhow::Error> {
+    pub fn get_instrument_by_exchange_instrument_id(&self, 
+                                                    exchange_instrument_id: i64) -> Result<Option<Instrument>, anyhow::Error> {
         let instruments = match self.instruments_by_exchange_instrument_id.read() {
             Ok(x) => x,
             Err(writable_error) => return Err(anyhow::anyhow!("get_instrument_by_exchange_instrument_id unable to get read access to instruments_by_exchange_instrument_id: {}", writable_error)),

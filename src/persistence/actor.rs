@@ -4,7 +4,8 @@ use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
 
-    pub async fn get_actor(&self, email_address: &str) -> Result<Option<Actor>, DaoError> {
+    pub async fn get_actor(&self, 
+                           email_address: &str) -> Result<Option<Actor>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ACTOR_QUERY);
         query_string.push_str("WHERE emailAddress = $1");
@@ -17,7 +18,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(Some(convert_row_to_actor(&row)))
     }
 
-    pub async fn get_actor_by_api_key(&self, api_key: &str) -> Result<Option<Actor>, DaoError> {
+    pub async fn get_actor_by_api_key(&self, 
+                                      api_key: &str) -> Result<Option<Actor>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(ACTOR_QUERY);
         query_string.push_str(JOIN_API_KEY);
@@ -39,7 +41,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(res.iter().next().map(convert_row_to_actor))
     }
 
-    pub async fn get_actor_password_hash(&self, email_address: &str) -> Result<Option<String>, DaoError> {
+    pub async fn get_actor_password_hash(&self, 
+                                         email_address: &str) -> Result<Option<String>, DaoError> {
         let row = match self.transaction.query_one(ACTOR_PASSWORD_HASH_QUERY,
                                                    &[&email_address]).await {
             Ok(res) => res,
@@ -49,7 +52,11 @@ impl<'b> DaoTransaction<'b> {
         Ok(row.get("passwordHash"))
     }
 
-    pub async fn save_actor(&self, email_address: &str, actor_name: &str, offer_code: &str, password_hash: &str) -> Result<Actor, DaoError> {
+    pub async fn save_actor(&self, 
+                            email_address: &str, 
+                            actor_name: &str, 
+                            offer_code: &str, 
+                            password_hash: &str) -> Result<Actor, DaoError> {
         let row = match self.transaction.query_one(
             "INSERT INTO actor \
             (actorName, emailAddress, offerId) \

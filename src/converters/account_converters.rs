@@ -4,7 +4,8 @@ use crate::instrument_manager::InstrumentManager;
 use anyhow::Error;
 
 impl entities::account::Account {
-    pub fn to_rest_api_account(&self, nickname: &str) -> Account {
+    pub fn to_rest_api_account(&self, 
+                               nickname: &str) -> Account {
         Account {
             account_key: self.account_key.clone(),
             account_number: self.account_number.clone(),
@@ -16,7 +17,9 @@ impl entities::account::Account {
 }
 
 impl entities::account::Position {
-    pub fn to_rest_api_position(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Result<Position, Error> {
+    pub fn to_rest_api_position(&self, 
+                                account_key: &str, 
+                                instrument_manager: &InstrumentManager) -> Result<Position, Error> {
         let instrument_option = instrument_manager.get_instrument(self.instrument_id)?;
         let instrument = match instrument_option {
             Some(instrument_key) => instrument_key,
@@ -35,7 +38,8 @@ impl entities::account::Position {
 }
 
 impl entities::account::Balance {
-    pub fn to_rest_api_balance(&self, account_key: &str) -> Balance {
+    pub fn to_rest_api_balance(&self, 
+                               account_key: &str) -> Balance {
         Balance {
             account_key: account_key.to_string(),
             cash: self.cash,

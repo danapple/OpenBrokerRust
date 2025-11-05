@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use tokio_postgres::Row;
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn get_positions(&self, account_key: &String) -> Result<HashMap<i64, Position>, DaoError> {
+    pub async fn get_positions(&self, 
+                               account_key: &String) -> Result<HashMap<i64, Position>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(POSITION_QUERY);
         query_string.push_str("WHERE account.accountKey = $1");
@@ -19,7 +20,9 @@ impl<'b> DaoTransaction<'b> {
         Ok(positions_map)
     }
 
-    pub async fn get_position(&self, account_key: &String, instrument_id: i64) -> Result<Option<Position>, DaoError> {
+    pub async fn get_position(&self, 
+                              account_key: &String, 
+                              instrument_id: i64) -> Result<Option<Position>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(POSITION_QUERY);
         query_string.push_str("WHERE account.accountKey = $1 AND position.instrumentId = $2");
@@ -40,7 +43,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(position)
     }
 
-    pub async fn update_position(&self, position: &mut Position) -> Result<(), DaoError> {
+    pub async fn update_position(&self, 
+                                 position: &mut Position) -> Result<(), DaoError> {
         let next_version_number = position.version_number + 1;
         let rows_updated = match self.transaction.execute(POSITION_UPDATE_STATEMENT,
                                                           &[
@@ -64,7 +68,8 @@ impl<'b> DaoTransaction<'b> {
         Ok(())
     }
 
-    pub async fn save_position(&self, mut position: Position) -> Result<(Position), DaoError> {
+    pub async fn save_position(&self, 
+                               mut position: Position) -> Result<(Position), DaoError> {
         let row = match self.transaction.query_one(
             POSITION_SAVE_STATEMENT,
             &[

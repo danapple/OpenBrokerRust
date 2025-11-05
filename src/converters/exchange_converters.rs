@@ -2,7 +2,8 @@ use crate::entities::exchange::Exchange;
 use crate::{dtos, entities};
 
 impl entities::exchange::Instrument {
-    pub fn to_rest_api_instrument(&self, exchange: &Exchange) -> dtos::exchange::Instrument {
+    pub fn to_rest_api_instrument(&self, 
+                                  exchange: &Exchange) -> dtos::exchange::Instrument {
         dtos::exchange::Instrument {
             instrument_key: self.instrument_key.clone(),
             status: self.status.clone(),

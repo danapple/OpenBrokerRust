@@ -4,7 +4,8 @@ use std::str::FromStr;
 
 impl<'b> DaoTransaction<'b> {
 
-    pub async fn get_powers(&self, actor_id: i32) -> Result<Vec<Power>, DaoError> {
+    pub async fn get_powers(&self, 
+                            actor_id: i32) -> Result<Vec<Power>, DaoError> {
         let mut query_string: String = "".to_owned();
         query_string.push_str(POWER_QUERY);
         query_string.push_str(" WHERE admin_role_membership.actorId = $1");

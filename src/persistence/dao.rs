@@ -47,7 +47,8 @@ impl Error for DaoError {
     }
 }
 
-pub fn gen_dao_error(method: &str, postgres_error: tokio_postgres::Error) -> DaoError {
+pub fn gen_dao_error(method: &str, 
+                     postgres_error: tokio_postgres::Error) -> DaoError {
     error!("{} {}: {}", method, postgres_error.to_string(), match postgres_error.as_db_error() {
                 Some(x) => format!("{}", x),
                 None => "none".to_string()});
@@ -81,7 +82,8 @@ impl Dao {
         }
     }
 
-    pub async fn begin<'b> (&self, manager: &'b mut Object) -> Result<DaoTransaction<'b>, DaoError> {
+    pub async fn begin<'b> (&self, 
+                            manager: &'b mut Object) -> Result<DaoTransaction<'b>, DaoError> {
         let txn_builder = manager.build_transaction();
         let start_result = txn_builder.start().await;
         let txn = match start_result {

@@ -7,7 +7,8 @@ use uuid::Uuid;
 // 0.8.5
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn create_account_for_actor(&self, actor: &Actor) -> Result<(), DaoError> {
+    pub async fn create_account_for_actor(&self, 
+                                          actor: &Actor) -> Result<(), DaoError> {
 
         let mut account_number_option = None;
         for iteration in 1..101 {

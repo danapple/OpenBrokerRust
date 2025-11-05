@@ -452,7 +452,9 @@ pub async fn cancel_order(dao: ThinData<Dao>,
 }
 
 pub fn send_order_state(web_socket_server: &mut ThinData<WebSocketServer>,
-                        instrument_manager: &ThinData<InstrumentManager>, account_key: &String, order_state: &crate::entities::order::OrderState) -> Result<dtos::order::OrderState, Error> {
+                        instrument_manager: &ThinData<InstrumentManager>, 
+                        account_key: &String, 
+                        order_state: &entities::order::OrderState) -> Result<OrderState, Error> {
     let rest_api_order_state = order_state.to_rest_api_order_state(account_key.as_str(), instrument_manager)?;
     let account_update = crate::trade_handling::updates::AccountUpdate {
         balance: None,

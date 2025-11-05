@@ -57,20 +57,33 @@ impl ExchangeWebsocketClient {
     }
 }
 
-fn build_executions_receiver(mutex: Arc<Mutex<()>>, dao: Dao, web_socket_server: WebSocketServer, instrument_manager: InstrumentManager, execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, &InstrumentManager, Execution),
+fn build_executions_receiver(mutex: Arc<Mutex<()>>, 
+                             dao: Dao, 
+                             web_socket_server: WebSocketServer, 
+                             instrument_manager: InstrumentManager, 
+                             execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, &InstrumentManager, Execution),
                              order_state_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, &InstrumentManager, OrderState)) -> Arc<dyn Fn(&MessageContent) + Send + Sync + 'static> {
     Arc::new(move |message| executions_receiver(mutex.clone(), &dao, &web_socket_server, &instrument_manager,  execution_handler, order_state_handler, message))
 }
 
-fn build_depth_receiver(mutex: Arc<Mutex<()>>, web_socket_server: WebSocketServer, instrument_manager: InstrumentManager, depth_handler: fn(&WebSocketServer, &InstrumentManager, MarketDepth)) -> Arc<dyn Fn(&MessageContent)  + Send + Sync + 'static> {
+fn build_depth_receiver(mutex: Arc<Mutex<()>>, 
+                        web_socket_server: WebSocketServer, 
+                        instrument_manager: InstrumentManager, 
+                        depth_handler: fn(&WebSocketServer, &InstrumentManager, MarketDepth)) -> Arc<dyn Fn(&MessageContent)  + Send + Sync + 'static> {
     Arc::new(move |message| depth_receiver(mutex.clone(), &web_socket_server, &instrument_manager, depth_handler, message))
 }
 
-fn build_last_trade_receiver(mutex: Arc<Mutex<()>>, web_socket_server: WebSocketServer, instrument_manager: InstrumentManager, last_trade_handler: fn(&WebSocketServer, &InstrumentManager, LastTrade)) -> Arc<dyn Fn(&MessageContent) + Send + Sync + 'static> {
+fn build_last_trade_receiver(mutex: Arc<Mutex<()>>, 
+                             web_socket_server: WebSocketServer, 
+                             instrument_manager: InstrumentManager, 
+                             last_trade_handler: fn(&WebSocketServer, &InstrumentManager, LastTrade)) -> Arc<dyn Fn(&MessageContent) + Send + Sync + 'static> {
     Arc::new(move |message| last_trade_receiver(mutex.clone(), &web_socket_server, &instrument_manager, last_trade_handler, message))
 }
 
-fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager,
+fn executions_receiver(mutex: Arc<Mutex<()>>, 
+                       dao: &Dao, 
+                       web_socket_server: &WebSocketServer, 
+                       instrument_manager: &InstrumentManager,
                        execution_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, &InstrumentManager, Execution),
                        order_state_handler: fn(mutex: Arc<Mutex<()>>, &Dao, &WebSocketServer, &InstrumentManager, OrderState),
                        stomp_message: &MessageContent) {
@@ -98,7 +111,11 @@ fn executions_receiver(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &Web
 
 }
 
-fn depth_receiver(mutex: Arc<Mutex<()>>, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, depth_handler: fn(&WebSocketServer, &InstrumentManager, MarketDepth), stomp_message: &MessageContent) {
+fn depth_receiver(mutex: Arc<Mutex<()>>, 
+                  web_socket_server: &WebSocketServer, 
+                  instrument_manager: &InstrumentManager, 
+                  depth_handler: fn(&WebSocketServer, &InstrumentManager, MarketDepth), 
+                  stomp_message: &MessageContent) {
     debug!("depth_receiver {} : {}", stomp_message.destination, stomp_message.body);
     let depth: MarketDepth = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,
@@ -110,7 +127,11 @@ fn depth_receiver(mutex: Arc<Mutex<()>>, web_socket_server: &WebSocketServer, in
     depth_handler(web_socket_server, instrument_manager, depth);
 }
 
-fn last_trade_receiver(mutex: Arc<Mutex<()>>, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, last_trade_handler: fn(&WebSocketServer, &InstrumentManager, LastTrade), stomp_message: &MessageContent) {
+fn last_trade_receiver(mutex: Arc<Mutex<()>>, 
+                       web_socket_server: &WebSocketServer, 
+                       instrument_manager: &InstrumentManager, 
+                       last_trade_handler: fn(&WebSocketServer, &InstrumentManager, LastTrade), 
+                       stomp_message: &MessageContent) {
     debug!("trades_receiver {} : {}", stomp_message.destination, stomp_message.body);
     let last_trade: LastTrade = match serde_json::from_str(stomp_message.body.as_str()) {
         Ok(x) => x,

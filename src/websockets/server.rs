@@ -26,7 +26,10 @@ impl WebSocketServer {
         }
     }
 
-    pub fn send_account_message(&mut self, account_key: &str, destination: &str, body: &impl Serialize) {
+    pub fn send_account_message(&mut self, 
+                                account_key: &str, 
+                                destination: &str, 
+                                body: &impl Serialize) {
         let mut vars = HashMap::new();
         vars.insert("account_key".to_string(), account_key);
         let new_destination = match strfmt(destination, &vars) {
@@ -38,7 +41,9 @@ impl WebSocketServer {
         };
         self.send_message(new_destination, body);
     }
-    pub fn send_retained_message(&mut self, destination: String, body: &impl Serialize) {
+    pub fn send_retained_message(&mut self, 
+                                 destination: String, 
+                                 body: &impl Serialize) {
         let queue_item = match self.send_message(destination.clone(), body) {
             Ok(queue_item) => queue_item,
             Err(send_message_error) => {
@@ -94,7 +99,8 @@ impl WebSocketServer {
         Ok(queue_item)
     }
 
-    fn create_queue_item(destination: &String, body: &impl Serialize) -> Result<QueueItem, anyhow::Error> {
+    fn create_queue_item(destination: &String, 
+                         body: &impl Serialize) -> Result<QueueItem, anyhow::Error> {
         let serialized_body = match serde_json::to_string(body) {
             Ok(x) => x,
             Err(fmt_error) => {

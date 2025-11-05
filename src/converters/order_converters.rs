@@ -19,7 +19,8 @@ pub fn order_status_to_rest_api_order_status(order_status: exchange_interface::o
 }
 
 impl entities::order::OrderLeg {
-    pub fn to_rest_api_order_leg(&self, instrument_manager: &InstrumentManager) -> Result<OrderLeg, Error> {
+    pub fn to_rest_api_order_leg(&self, 
+                                 instrument_manager: &InstrumentManager) -> Result<OrderLeg, Error> {
         let instrument = instrument_manager.get_instrument(self.instrument_id)?;
         let instrument_key = match instrument {
             Some(instrument_key) => instrument_key,
@@ -33,7 +34,9 @@ impl entities::order::OrderLeg {
 }
 
 impl entities::order::Order {
-    pub fn to_rest_api_order(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Result<Order, Error> {
+    pub fn to_rest_api_order(&self, 
+                             account_key: &str, 
+                             instrument_manager: &InstrumentManager) -> Result<Order, Error> {
         let mut order_legs: Vec<OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
             order_legs.push(leg.to_rest_api_order_leg(instrument_manager)?);
@@ -51,7 +54,9 @@ impl entities::order::Order {
 }
 
 impl entities::order::OrderState {
-    pub fn to_rest_api_order_state(&self, account_key: &str, instrument_manager: &InstrumentManager) -> Result<OrderState, Error> {
+    pub fn to_rest_api_order_state(&self, 
+                                   account_key: &str,
+                                   instrument_manager: &InstrumentManager) -> Result<OrderState, Error> {
         Ok(OrderState{
             update_time: self.update_time,
             order_status: self.order_status.clone(),
@@ -63,15 +68,12 @@ impl entities::order::OrderState {
 }
 
 impl Order {
-    pub fn to_exchange_order(&self, instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::order::Order, Error> {
+    pub fn to_exchange_order(&self, 
+                             instrument_manager: &ThinData<InstrumentManager>) -> Result<exchange_interface::order::Order, Error> {
         let mut order_legs: Vec<exchange_interface::order::OrderLeg> = Vec::new();
         for leg in self.legs.iter() {
-
             let instrument_result = instrument_manager.get_instrument_by_key(leg.instrument_key.as_str());
-            let instrument_option = match instrument_result {
-                Ok(instrument_option) => instrument_option,
-                Err(err) => return Err(anyhow::anyhow!("Unable to get instrument: {}", err))
-            };
+            let instrument_option = instrument_result?;
             let exchange_instrument = match instrument_option {
                 Some(instrument) => instrument,
                 None => return Err(anyhow::anyhow!("No instrument with key: {}", leg.instrument_key))
@@ -92,14 +94,14 @@ impl Order {
         Ok(order_exchange)
     }
 
-    pub fn to_entities_order(&self, account: &Account, client_order_id: String, instrument_manager: &ThinData<InstrumentManager>) -> Result<entities::order::Order, Error> {
+    pub fn to_entities_order(&self, 
+                             account: &Account, 
+                             client_order_id: String, 
+                             instrument_manager: &ThinData<InstrumentManager>) -> Result<entities::order::Order, Error> {
         let mut order_legs: Vec<entities::order::OrderLeg> = Vec::new();
 
         for leg in self.legs.iter() {
-            let instrument_option = match instrument_manager.get_instrument_by_key(&leg.instrument_key) {
-                Ok(instrument_option) => instrument_option,
-                Err(get_error) => return Err(anyhow::anyhow!("No failed while getting instrument by key: {}", get_error))
-            };
+            let instrument_option = instrument_manager.get_instrument_by_key(&leg.instrument_key)?;
 
             let instrument = match instrument_option {
                 Some(instrument) => instrument,

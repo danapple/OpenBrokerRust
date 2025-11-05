@@ -21,7 +21,10 @@ impl AccessControl {
         }
     }
 
-    pub(crate) async fn set_current_actor(&self, txn: &DaoTransaction<'_>, session: &Session, actor: &Actor) -> Result<(), Error> {
+    pub(crate) async fn set_current_actor(&self, 
+                                          txn: &DaoTransaction<'_>, 
+                                          session: &Session, 
+                                          actor: &Actor) -> Result<(), Error> {
         debug!("set_current_actor using session {:p}", session);
 
         let account_map = match self.build_account_map(txn, actor).await {
@@ -55,7 +58,8 @@ impl AccessControl {
         Ok(())
     }
 
-    pub fn get_allowed_accounts(&self, session: &Session) -> Result<HashMap<String, Account>, Error> {
+    pub fn get_allowed_accounts(&self, 
+                                session: &Session) -> Result<HashMap<String, Account>, Error> {
         debug!("get_allowed_accounts using session {:p}", session);
 
         let account_map_option  = match session.get::<HashMap<String, Account>>(SESSION_ACCOUNT_MAP_KEY) {
@@ -69,7 +73,10 @@ impl AccessControl {
         Ok(account_map)
     }
 
-    pub fn is_allowed_from_map(&self, allowed_accounts: &HashMap<String, Account>, account_key: &str, privilege: Privilege) -> Result<bool, Error> {
+    pub fn is_allowed_from_map(&self, 
+                               allowed_accounts: &HashMap<String, Account>, 
+                               account_key: &str, 
+                               privilege: Privilege) -> Result<bool, Error> {
         let account = match allowed_accounts.get(account_key) {
             Some(account) => account,
             None => return Ok(false)
@@ -88,7 +95,10 @@ impl AccessControl {
         }
     }
 
-    pub fn is_allowed_account_privilege(&self, session: &Session, account_key: &str, privilege: Privilege) -> Result<bool, Error> {
+    pub fn is_allowed_account_privilege(&self, 
+                                        session: &Session, 
+                                        account_key: &str, 
+                                        privilege: Privilege) -> Result<bool, Error> {
         debug!("is_allowed checking account_key {} with privilege {} against session", account_key, privilege);
         let accounts = match self.get_allowed_accounts(session) {
             Ok(accounts) => accounts,
@@ -97,7 +107,9 @@ impl AccessControl {
         self.is_allowed_from_map(&accounts, account_key, privilege)
     }
 
-    pub fn is_admin_allowed_power(& self, session: &Session, power: Power) -> Result<bool, Error> {
+    pub fn is_admin_allowed_power(& self, 
+                                  session: &Session, 
+                                  power: Power) -> Result<bool, Error> {
         debug!("is_admin_allowed checking with power {} against session", power);
         let powers_option  = match session.get::<Vec<Power>>(SESSION_POWERS) {
             Ok(powers) => powers,
@@ -110,7 +122,9 @@ impl AccessControl {
         Ok(powers.contains(&power))
     }
 
-    async fn build_account_map(&self, txn: &DaoTransaction<'_>, actor: &Actor) -> Result<HashMap<String, Account>, Error> {
+    async fn build_account_map(&self, 
+                               txn: &DaoTransaction<'_>, 
+                               actor: &Actor) -> Result<HashMap<String, Account>, Error> {
         let accesses = match txn.get_accesses_for_actor(actor.actor_id).await {
             Ok(accesses) => accesses,
             Err(dao_error) => return Err(anyhow::anyhow!("build_account_map failed to get accesses for actor: {}", dao_error)),

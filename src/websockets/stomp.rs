@@ -17,7 +17,9 @@ pub fn subscribe_message(subscription_id: u32, destination: &str) -> Message {
     Message::text(format!("SUBSCRIBE\nid:{}\ndestination:{}\nack:auto\n\n\x00", subscription_id, destination))
 }
 
-pub fn text_message(destination: String, subscription: String, body: &String) -> Message {
+pub fn text_message(destination: String, 
+                    subscription: String, 
+                    body: &String) -> Message {
     Message::text(format!("\
     MESSAGE\n\
     destination:{}\n\

@@ -10,7 +10,8 @@ pub enum ExchangeError {
 }
 
 impl ExchangeError {
-    pub fn failure(description: String, cause: String) -> Self {
+    pub fn failure(description: String, 
+                   cause: String) -> Self {
         ExchangeError::Failure{
             description,
             cause,

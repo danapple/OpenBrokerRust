@@ -18,7 +18,8 @@ pub(crate) fn get_customer_key_cookie(customer_key: &str) -> String {
 }
 
 impl ExchangeClient {
-    pub fn new(exchange_url: &str, broker_key: &str) -> Self {
+    pub fn new(exchange_url: &str, 
+               broker_key: &str) -> Self {
         let jar = Arc::new(Jar::default());
         let url = match exchange_url.parse::<Url>() {
             Ok(url_string) => url_string,
@@ -41,7 +42,8 @@ impl ExchangeClient {
         }
     }
 
-    fn get_url(&self, region: &str) -> Result<Url, ExchangeError> {
+    fn get_url(&self, 
+               region: &str) -> Result<Url, ExchangeError> {
         let base_url = &self.exchange_url;
         let full_url = format!("{base_url}/{region}");
         match full_url.parse::<Url>() {
@@ -51,7 +53,9 @@ impl ExchangeClient {
         }
     }
 
-    fn get_url_with_id(&self, region: &str, client_order_id: &String) -> Result<Url, ExchangeError> {
+    fn get_url_with_id(&self, 
+                       region: &str, 
+                       client_order_id: &String) -> Result<Url, ExchangeError> {
         let base_url = &self.exchange_url;
         let full_url = format!("{base_url}/{region}/{client_order_id}");
         match full_url.parse::<Url>() {
@@ -83,7 +87,8 @@ impl ExchangeClient {
         }
     }
 
-    pub async fn submit_order(&self, order: Order) -> Result<OrderState, ExchangeError> {
+    pub async fn submit_order(&self, 
+                              order: Order) -> Result<OrderState, ExchangeError> {
         let orders = SubmitOrders { orders: vec![order] };
         let url = match self.get_url("orders") {
             Ok(url) => url,
@@ -95,7 +100,8 @@ impl ExchangeClient {
     }
 
 
-    pub async fn cancel_order(&self, client_order_id: String) -> Result<OrderState, ExchangeError> {
+    pub async fn cancel_order(&self, 
+                              client_order_id: String) -> Result<OrderState, ExchangeError> {
         let url = match self.get_url_with_id("orders", &client_order_id) {
             Ok(url) => url,
             Err(get_url_error) => return Err(ExchangeError::Failure { description: "cancel_order get_url_with_id".to_string(), cause: get_url_error.to_string() })

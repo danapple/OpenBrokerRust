@@ -3,7 +3,8 @@ use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use crate::time::current_time_millis;
 
 impl<'b> DaoTransaction<'b> {
-    pub async fn check_offer(&self, offer_code: &str) -> Result<bool, DaoError> {
+    pub async fn check_offer(&self, 
+                             offer_code: &str) -> Result<bool, DaoError> {
         let res = match self.transaction.query("SELECT code FROM offer \
                                         WHERE code = $1 AND \
                                         expirationTime > $2",
@@ -18,7 +19,8 @@ impl<'b> DaoTransaction<'b> {
     }
 
 
-    pub async fn save_offer(&self, mut offer: Offer) -> Result<(), DaoError> {
+    pub async fn save_offer(&self, 
+                            mut offer: Offer) -> Result<(), DaoError> {
         let row = match self.transaction.query_one(
             "INSERT INTO offer \
             (code, description, expirationTime) \

@@ -28,7 +28,8 @@ pub struct Order {
 }
 
 impl Order {
-    pub fn add_leg(&mut self, leg: OrderLeg) {
+    pub fn add_leg(&mut self, 
+                   leg: OrderLeg) {
         self.legs.push(leg);
     }
 }

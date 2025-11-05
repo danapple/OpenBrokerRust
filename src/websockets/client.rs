@@ -14,7 +14,7 @@ use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::handshake::client::Request;
-use tokio_tungstenite::tungstenite::{Error, Message};
+use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 pub struct WebsocketClient {
@@ -50,7 +50,8 @@ impl WebsocketClient {
     }
 }
 
-async fn run_websocket(websocket_address: String, broker_key: String, handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync + 'static>>>>) -> Result<()> {
+async fn run_websocket(websocket_address: String, broker_key: String,
+                       handlers: Arc<RwLock<HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync + 'static>>>>) -> Result<()> {
     let mut unboxed_handlers = HashMap::new();
     match unbox_handlers(handlers, &mut unboxed_handlers) {
         Ok(_) => {},
@@ -79,7 +80,8 @@ async fn run_websocket(websocket_address: String, broker_key: String, handlers: 
     }
 }
 
-pub async fn run_one_web_socket(request: Request, unboxed_handlers: &HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync>>) {
+pub async fn run_one_web_socket(request: Request,
+                                unboxed_handlers: &HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync>>) {
     let (mut ws_stream, _) = match connect_async(request).await {
         Ok(x) => x,
         Err(connect_error) => {
@@ -124,7 +126,9 @@ pub async fn run_one_web_socket(request: Request, unboxed_handlers: &HashMap<Str
     }
 }
 
-async fn process_message(ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>, unboxed_handlers: &HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync>>, msg: Message, subscription_id: u32) -> Result<u32> {
+async fn process_message(ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+                         unboxed_handlers: &HashMap<String, Arc<dyn Fn(&MessageContent) + Send + Sync>>,
+                         msg: Message, subscription_id: u32) -> Result<u32> {
     let mut new_subscription_id = subscription_id;
     match msg {
         Message::Text(text) => {

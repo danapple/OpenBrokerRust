@@ -4,7 +4,11 @@ use crate::trade_handling::updates::AccountUpdate;
 use log::error;
 use tokio::sync::mpsc::UnboundedSender;
 
-pub async fn send_positions(txn: DaoTransaction<'_>, instrument_manager: &InstrumentManager, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
+pub async fn send_positions(txn: DaoTransaction<'_>, 
+                            instrument_manager: &InstrumentManager, 
+                            conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, 
+                            destination: &String, 
+                            account_key: &String) {
     let positions = match txn.get_positions(account_key).await {
         Ok(positions) => positions,
         Err(y) => {
@@ -47,7 +51,10 @@ pub async fn send_positions(txn: DaoTransaction<'_>, instrument_manager: &Instru
     }
 }
 
-pub async fn send_balance(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
+pub async fn send_balance(txn: DaoTransaction<'_>, 
+                          conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, 
+                          destination: &String, 
+                          account_key: &String) {
     let balance = match txn.get_balance(account_key).await {
         Ok(x) => x,
         Err(y) => {
@@ -81,7 +88,11 @@ pub async fn send_balance(txn: DaoTransaction<'_>, conn_tx: UnboundedSender<crat
     };
 }
 
-pub async fn send_orders(txn: DaoTransaction<'_>, instrument_manager: &InstrumentManager, conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, destination: &String, account_key: &String) {
+pub async fn send_orders(txn: DaoTransaction<'_>, 
+                         instrument_manager: &InstrumentManager, 
+                         conn_tx: UnboundedSender<crate::websockets::server::QueueItem>, 
+                         destination: &String, 
+                         account_key: &String) {
     let order_states = match txn.get_orders(&account_key).await {
         Ok(x) => x,
         Err(y) => {

@@ -5,7 +5,6 @@ use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
 use crate::time::current_time_millis;
 use crate::trade_handling::updates::AccountUpdate;
-use crate::websockets::client::run_one_web_socket;
 use crate::websockets::server::WebSocketServer;
 use anyhow::Error;
 use async_std::task;
@@ -13,7 +12,11 @@ use log::{error, info, warn};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub fn handle_order_state(mutex: Arc<Mutex<()>>, dao: &Dao, web_socket_server: &WebSocketServer, instrument_manager: &InstrumentManager, order_state: OrderState) {
+pub fn handle_order_state(mutex: Arc<Mutex<()>>, 
+                          dao: &Dao, 
+                          web_socket_server: &WebSocketServer, 
+                          instrument_manager: &InstrumentManager, 
+                          order_state: OrderState) {
     info!("Order state: {:?}", order_state);
     tokio::spawn(update_order_state_loop(mutex.clone(), web_socket_server.clone(), dao.clone(), instrument_manager.clone(), order_state));
 }
@@ -38,7 +41,11 @@ async fn update_order_state_loop(mutex: Arc<Mutex<()>>, web_socket_server: WebSo
     error!("Failed to update order state after all attempts");
 }
 
-async fn update_order_state(mutex: Arc<Mutex<()>>, mut web_socket_server: WebSocketServer, dao: Dao, instrument_manager: InstrumentManager, order_state_orig: &OrderState) -> Result<(), Error> {
+async fn update_order_state(mutex: Arc<Mutex<()>>, 
+                            mut web_socket_server: WebSocketServer, 
+                            dao: Dao, 
+                            instrument_manager: InstrumentManager,
+                            order_state_orig: &OrderState) -> Result<(), Error> {
     let order_state = order_state_orig.clone();
     let _lock = mutex.lock().await;
     let mut db_connection = match dao.get_connection().await {
