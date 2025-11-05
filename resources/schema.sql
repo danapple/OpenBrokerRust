@@ -221,6 +221,7 @@ INSERT INTO order_status (orderStatus) VALUES
 CREATE TABLE IF NOT EXISTS order_state (
       orderId BIGINT PRIMARY KEY REFERENCES order_base,
       orderStatus VARCHAR NOT NULL REFERENCES order_status,
+      rejectReason VARCHAR NULL,
       updateTime BIGINT NOT NULL,
       versionNumber BIGINT NOT NULL
 );
@@ -229,6 +230,7 @@ CREATE TABLE IF NOT EXISTS order_state_history (
       orderStateHistoryId BIGSERIAL PRIMARY KEY,
       orderId BIGINT REFERENCES order_base NOT NULL,
       orderStatus VARCHAR NOT NULL REFERENCES order_status,
+      rejectReason VARCHAR NULL,
       createTime BIGINT NOT NULL,
       versionNumber BIGINT NOT NULL
 );
@@ -259,7 +261,7 @@ CREATE TABLE IF NOT EXISTS balance (
     versionNumber BIGINT NOT NULL
 );
 
-GRANT SELECT ON TABLE privilege, power TO broker_user;
+GRANT SELECT ON TABLE privilege, power, admin_role_power, admin_role_membership TO broker_user;
 
 GRANT SELECT, INSERT ON TABLE order_base, order_number_generator, order_leg, order_status, order_state,
     order_state_history, trade, position, balance, actor, login_info, offer, account, balance,
