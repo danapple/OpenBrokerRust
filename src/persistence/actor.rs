@@ -43,13 +43,18 @@ impl<'b> DaoTransaction<'b> {
 
     pub async fn get_actor_password_hash(&self, 
                                          email_address: &str) -> Result<Option<String>, DaoError> {
-        let row = match self.transaction.query_one(ACTOR_PASSWORD_HASH_QUERY,
+        let rows = match self.transaction.query(ACTOR_PASSWORD_HASH_QUERY,
                                                    &[&email_address]).await {
             Ok(res) => res,
             Err(db_error) => { return Err(gen_dao_error("get_actor_password_hash", db_error)); }
         };
-
-        Ok(row.get("passwordHash"))
+        if rows.is_empty() {
+            return Ok(None);
+        }
+        Ok(match rows.first() {
+            Some(row) => Some(row.get("passwordHash")),
+            None =>  None,
+        })
     }
 
     pub async fn save_actor(&self, 

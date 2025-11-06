@@ -5,7 +5,28 @@
 <div class="entry">
   <h1>Welcome to OpenBroker, the imaginary brokerage.</h1>
     <div class="grid">
+        <div id="login_failure_message" class="warning">
+            <script>
+                if ("{{login_failure_message}}" !== "") {
+                    document.getElementById("login_failure_message").innerHTML = "{{login_failure_message}}";
+                }
+            </script>
+        </div>
+        <div id="registration_failure_message" class="warning">
+            <script>
+                if ("{{registration_failure_message}}" !== "") {
+                    document.getElementById("registration_failure_message").innerHTML = "{{registration_failure_message}}";
+                }
+            </script>
+        </div>
         <div id="login">
+            <div id="registration_success_message" class="success">
+                <script>
+                    if ("{{registration_success_message}}" !== "") {
+                        document.getElementById("registration_success_message").innerHTML = "{{registration_success_message}}";
+                    }
+                </script>
+            </div>
             <form action="/login" method="POST">
                 <div class="body">
                     Do you already have an imaginary account with OpenBroker?  Login here.
@@ -35,7 +56,6 @@
                 </div>
             </form>
         </div>
-
         <div id="register">
             <form action="/register" method="POST">
                 <div class="body">

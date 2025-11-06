@@ -7,13 +7,8 @@ body {
 
 .main-style {
     font-size: 24px;
-    //padding: 2em 3em;
     margin: 0 auto 20px;
-    /*background-color: #04042a;*/
     color: white;
-    /*border: 1px solid #e5e5e5;*/
-   <!-- -webkit-border-radius: 5px;-->
-   <!-- -moz-border-radius: 5px;-->
     border-radius: 5px;
 }
 #td {
@@ -24,6 +19,14 @@ body {
     display: grid;
     height: 100px;
     grid-template-columns: 1fr 1fr;
+}
+
+.warning {
+    color: yellow;
+}
+
+.success {
+    color: green;
 }
 
 .right-align {
