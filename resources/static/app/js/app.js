@@ -2,6 +2,8 @@ import {OpenBroker} from "./openbroker.js";
 
 let openBroker = new OpenBroker();
 
+let inFlightOrder = false;
+
 function instrumentCallback(instrument) {
     // console.log("instrumentCallback: " + JSON.stringify(instrument));
     let order_instrument_select = document.getElementById('order_instrument');
@@ -242,15 +244,33 @@ function marketCallback(market) {
 }
 
 function submitOrder() {
+    if (inFlightOrder) {
+        return;
+    }
     let quantity = document.getElementById("order_quantity").value;
     let price = document.getElementById("order_price").value;
     let instrument_key = document.getElementById("order_instrument").value;
     let account_key = document.getElementById("order_account").value;
+    if (quantity != 0) {
+        inFlightOrder = true;
+        openBroker.submitOrder(account_key, instrument_key, quantity, price);
+    }
+}
 
-    document.getElementById("order_quantity").value = "";
-    document.getElementById("order_price").value = "";
+function submitOrderCallback(status, text) {
+    inFlightOrder = false;
+    if (status === 200) {
+        document.getElementById("order_quantity").value = "";
+        document.getElementById("order_price").value = "";
+    } else if (status === 412) {
+        alert(text.reject_reason);
+    }
+}
 
-    openBroker.submitOrder(account_key, instrument_key, quantity, price);
+function cancelOrderCallback(status, text) {
+    if (status !== 200) {
+        alert(status + " " + JSON.stringify(text));
+    }
 }
 
 function render(num) {
@@ -278,4 +298,6 @@ openBroker.orderStateCallback = orderStateCallback;
 openBroker.balanceCallback = balanceCallback;
 openBroker.totalsCallback = totalsCallback;
 openBroker.marketCallback = marketCallback;
+openBroker.submitOrderCallback = submitOrderCallback;
+openBroker.cancelOrderCallback = cancelOrderCallback;
 openBroker.start();

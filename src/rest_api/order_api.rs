@@ -13,11 +13,13 @@ use uuid::Uuid;
 use crate::converters::order_converters::order_status_to_rest_api_order_status;
 use crate::dtos::account::Privilege;
 use crate::dtos::exchange::InstrumentStatus;
-use crate::dtos::order::{is_order_status_open, Order, OrderState, OrderStatus, VettingResult};
+use crate::dtos::order::{is_order_status_viable, Order, OrderState, OrderStatus, VettingResult};
+use crate::entities::account::Position;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::{Dao, DaoError};
 use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
 use crate::time::current_time_millis;
+use crate::validator::validator::Validator;
 use crate::vetting::all_pass_vetter::AllPassVetter;
 use crate::websockets::server::WebSocketServer;
 use crate::{dtos, entities, exchange_interface};
@@ -34,10 +36,7 @@ pub async fn get_orders(dao: ThinData<Dao>,
 
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -83,10 +82,7 @@ pub async fn get_order(dao: ThinData<Dao>,
     info!("get_order called for ext_order_id {ext_order_id}");
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -126,33 +122,24 @@ pub async fn get_order(dao: ThinData<Dao>,
 pub async fn preview_order(dao: ThinData<Dao>,
                            access_control: ThinData<AccessControl>,
                            session: Session,
-                           instrument_manager: ThinData<InstrumentManager>,
+                           validator: ThinData<Validator>,
                            vetter: ThinData<AllPassVetter>,
                            path: Path<(String)>,
-                           rest_api_order: Json<Order>) -> HttpResponse {
+                           mut rest_api_order: Json<Order>) -> HttpResponse {
     let account_key = path.into_inner();
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
     }
-
-    let vetting_result = match vetter.vet_order(&rest_api_order).await {
-        Ok(x) => x,
-        Err(vetting_error) => {
-            error!("{}", vetting_error);
-            return HttpResponse::InternalServerError().finish()
-        },
+    let check_result = match check_order(&dao, vetter, validator, &mut rest_api_order, &account_key).await {
+        Ok(check_result) => check_result,
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
-    let rest_api_vetting_result = VettingResult {
-        pass: vetting_result.pass,
-    };
-    HttpResponse::Ok().json(rest_api_vetting_result)
+    
+    HttpResponse::Ok().json(check_result)
 }
 
 #[post("/accounts/{account_key}/orders")]
@@ -161,6 +148,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
                           access_control: ThinData<AccessControl>,
                           session: Session,
                           vetter: ThinData<AllPassVetter>,
+                          validator: ThinData<Validator>,
                           mut web_socket_server: ThinData<WebSocketServer>,
                           path: Path<(String)>,
                           mut rest_api_order: Json<Order>) -> HttpResponse {
@@ -170,27 +158,18 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
     }
 
-    let vetting_result = match vetter.vet_order(&rest_api_order).await {
-        Ok(x) => x,
-        Err(vetting_error) => {
-            error!("Vetting error: {}", vetting_error);
-            return HttpResponse::InternalServerError().finish()
-        },
+    let check_result = match check_order(&dao, vetter, validator, &mut rest_api_order, &account_key).await {
+        Ok(check_result) => check_result,
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
-    if !vetting_result.pass {
-        let rest_api_vetting_result = VettingResult {
-            pass: vetting_result.pass,
-        };
-        return HttpResponse::PreconditionFailed().json(rest_api_vetting_result);
+    if !check_result.pass {
+        return HttpResponse::PreconditionFailed().json(check_result)
     }
 
     let first_leg_instrument_key = match rest_api_order.legs.first() {
@@ -337,6 +316,55 @@ pub async fn submit_order(dao: ThinData<Dao>,
         .json(rest_api_order_state)
 }
 
+async fn check_order<'a>(dao: &ThinData<Dao>, vetter: ThinData<AllPassVetter>, validator: ThinData<Validator>, rest_api_order: &mut Json<Order>, account_key: &String) -> Result<VettingResult, Error> {
+    let mut db_connection = match dao.get_connection().await {
+        Ok(x) => x,
+        Err(dao_error) => return Err(anyhow::anyhow!("Could not get connection: {}", dao_error))
+    };
+    let txn = match dao.begin(&mut db_connection).await {
+        Ok(x) => x,
+        Err(dao_error) => return Err(anyhow::anyhow!("Could not begin: {}", dao_error))
+    };
+
+    let existing_orders = match txn.get_orders(&account_key).await {
+        Ok(existing_orders) => existing_orders,
+        Err(dao_error) => return Err(anyhow::anyhow!("Could not get orders: {}", dao_error))
+    };
+
+    let orders: HashMap<String, entities::order::OrderState> = existing_orders.iter().filter(|(a, b)| {
+        is_order_status_viable(&b.order_status)
+    }).map(|(k, v)| { return (k.clone(), v.clone()) }).collect();
+
+    let existing_positions = match txn.get_positions(&account_key).await {
+        Ok(positions) => positions,
+        Err(dao_error) => return Err(anyhow::anyhow!("Could not get positions: {}", dao_error))
+    };
+
+    let positions: HashMap<i64, Position> = existing_positions.iter().filter(|(a, b)| {
+        b.quantity != 0
+    }).map(|(k, v)| { return (k.clone(), v.clone()) }).collect();
+
+    match txn.rollback().await {
+        Ok(x) => x,
+        Err(dao_error) => return Err(anyhow::anyhow!("Could not rollback: {}", dao_error))
+    };
+
+    let validation_result = match validator.validate_order(&rest_api_order, &orders) {
+        Ok(validation_result) => validation_result,
+        Err(validation_error) => return Err(anyhow::anyhow!("validation error: {}", validation_error))
+    };
+    if !validation_result.pass {
+        return Ok(validation_result);
+    }
+
+    let vetting_result = match vetter.vet_order(&rest_api_order, &orders, &positions).await {
+        Ok(x) => x,
+        Err(vetting_error) => return Err(anyhow::anyhow!("vetting error: {}", vetting_error))
+
+    };
+    Ok(vetting_result)
+}
+
 #[delete("/accounts/{account_key}/orders/{ext_order_id}")]
 pub async fn cancel_order(dao: ThinData<Dao>,
                           mut web_socket_server: ThinData<WebSocketServer>,
@@ -349,10 +377,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     info!("cancel_order called for ext_order_id {ext_order_id}");
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => {
-            error!("Failed while checking access: {}", error.to_string());
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(error) => return log_text_error_and_return_500(error.to_string())
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -376,7 +401,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
         None => return HttpResponse::NotFound().finish(),
     };
 
-    if !is_order_status_open(&order_state.order_status) {
+    if !is_order_status_viable(&order_state.order_status) {
         return HttpResponse::PreconditionFailed().finish();
     }
 

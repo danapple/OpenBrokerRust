@@ -8,6 +8,8 @@ export class OpenBroker {
     orderStateCallback = null;
     balanceCallback = null;
     totalsCallback = null;
+    submitOrderCallback = null;
+    cancelOrderCallback = null;
 
     constructor() {
         this.#stompClient = this.#buildStompClient();
@@ -19,7 +21,7 @@ export class OpenBroker {
     }
 
     submitOrder(accountKey, instrumentKey, quantity, price) {
-        let xhttp = this.#makeXhttp("POST", accountKey, undefined);
+        let xhttp = this.#makeXhttp("POST", accountKey, undefined, this.submitOrderCallback);
         let body = JSON.stringify({
             price: Number(price),
             quantity: Number(quantity),
@@ -34,7 +36,7 @@ export class OpenBroker {
     }
 
     cancelOrder(accountKey, extOrderId) {
-        let xhttp = this.#makeXhttp("DELETE", accountKey, extOrderId);
+        let xhttp = this.#makeXhttp("DELETE", accountKey, extOrderId, this.cancelOrderCallback);
         xhttp.send();
     }
 
@@ -83,8 +85,15 @@ export class OpenBroker {
         return path;
     }
 
-    #makeXhttp(method, accountKey, extra) {
+    #makeXhttp(method, accountKey, extra, callback) {
         let xhttp = new XMLHttpRequest();
+        if (callback !== undefined && callback !== null) {
+            xhttp.onreadystatechange = function () {
+                if (this.readyState == 4) {
+                    callback(this.status, JSON.parse(this.responseText));
+                }
+            };
+        }
         let path = this.#makeOrdersPath(accountKey, extra);
         xhttp.open(method, path, true);
         xhttp.setRequestHeader("Content-type", "application/json");

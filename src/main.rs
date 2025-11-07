@@ -27,6 +27,7 @@ use crate::access_control::AccessControl;
 use crate::auth::account_pages;
 use crate::persistence::dao::Dao;
 use crate::rest_api::instrument_api;
+use crate::validator::validator::Validator;
 use crate::vetting::all_pass_vetter::AllPassVetter;
 use crate::websockets::server::WebSocketServer;
 use crate::websockets::ws_handler;
@@ -47,6 +48,7 @@ mod trade_handling;
 mod market_data;
 mod converters;
 mod dtos;
+mod validator;
 
 fn add_error_header<B>(mut res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
     res.response_mut().headers_mut().insert(
@@ -90,6 +92,8 @@ async fn main() -> io::Result<()> {
 
     let vetter = AllPassVetter::new();
 
+    let validator = Validator::new(instrument_manager.clone());
+
     let secret_key = Key::from(config.session_key.as_bytes());
     let redis_store = match RedisSessionStore::new(config.redis_addr)
         .await {
@@ -103,6 +107,7 @@ async fn main() -> io::Result<()> {
             .app_data(ThinData(dao.clone()))
             .app_data(ThinData(access_control.clone()))
             .app_data(ThinData(vetter.clone()))
+            .app_data(ThinData(validator.clone()))
             .app_data(ThinData(web_socket_server.clone()))
             .app_data(ThinData(oconfig.clone()))
             .wrap(middleware::Logger::default())

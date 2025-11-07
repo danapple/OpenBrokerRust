@@ -1,4 +1,4 @@
-use crate::dtos::order::{is_order_status_open, OrderStatus};
+use crate::dtos::order::{is_order_status_viable, OrderStatus};
 use crate::entities::order::{Order, OrderLeg, OrderState};
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use crate::time::current_time_millis;
@@ -152,7 +152,7 @@ impl<'b> DaoTransaction<'b> {
                             account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
         let mut open_statuses = Vec::new();
         for order_status in OrderStatus::iter() {
-            if (is_order_status_open(&order_status)) {
+            if (is_order_status_viable(&order_status)) {
                 open_statuses.push(order_status.to_string());
             }
         }

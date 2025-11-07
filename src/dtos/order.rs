@@ -39,7 +39,7 @@ impl FromStr for OrderStatus {
     }
 }
 
-pub fn is_order_status_open(order_status: &OrderStatus) -> bool {
+pub fn is_order_status_viable(order_status: &OrderStatus) -> bool {
     match order_status {
         OrderStatus::Rejected => false,
         OrderStatus::Pending => true,
@@ -90,7 +90,8 @@ pub struct Trade {
     pub quantity: i32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct VettingResult {
-    pub pass: bool
+    pub pass: bool,
+    pub reject_reason: Option<String>
 }
