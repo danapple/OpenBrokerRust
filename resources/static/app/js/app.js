@@ -1,208 +1,214 @@
+import {OpenBroker} from "./openbroker.js";
 
-var connected = false;
-var subscriptions = {};
-var instruments = {};
-var accounts = {};
-var marketData = {};
+let openBroker = new OpenBroker();
 
-const stompClient = new StompJs.Client({
-    webSocketFactory: function () {
-        return new WebSocket("/ws");
-    }
-});
+function instrumentCallback(instrument) {
+    // console.log("instrumentCallback: " + JSON.stringify(instrument));
+    let order_instrument_select = document.getElementById('order_instrument');
 
-stompClient.onopen = function() {
-    console.log("Stomp Client opened");
+    let opt = document.createElement('option');
+    opt.value = instrument.instrument_key;
+    opt.innerHTML = instrument.description;
+    order_instrument_select.appendChild(opt);
 }
 
-stompClient.onConnect = (frame) => {
-    setConnected();
-    console.log('Connected: ' + frame);
-    for (const [destination, func] of Object.entries(subscriptions)) {
-        sendsubscribe(destination, func);
-    }
-};
+function accountCallback(account) {
+    // console.log("accountCallback: " + JSON.stringify(account));
+    $("#accounts_body").append(
+        "<td>"+ account.account_number + "</td>"
+        + "<td>" + account.account_name + "</td>"
+        + "<td>" + account.nickname + "</td>");
+    $("#account-data").show();
 
-function subscribe(destination, func) {
-  //  console.log('Subscribing: ' + destination);
-    subscriptions[destination] = func;
-    if (!connected) {
-        return;
-    }
-    sendsubscribe(destination, func);
+    let order_account_select = document.getElementById('order_account');
+
+    let opt = document.createElement('option');
+    opt.value = account.account_key;
+    opt.innerHTML = account.account_number;
+    order_account_select.appendChild(opt);
 }
 
-function subscribeAccount(accountKey, func) {
-    let destination = '/accounts/' + accountKey + '/updates';
-    subscribe(destination, func);
-}
+function positionCallback(position) {
+    // console.log("positionCallback: " + JSON.stringify(position));
+    let description = openBroker.getInstrumentDescription(position.instrument_key);
+    let symbol = openBroker.getInstrumentSymbol(position.instrument_key);
 
-function sendsubscribe(destination, func) {
-  //  console.log('sendsubscribe to ' + destination);
-    stompClient.subscribe(destination, func);
-    if (destination.startsWith('/accounts/')) {
-        stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "balance"})});
-        stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "positions"})});
-        stompClient.publish({destination: destination, body: JSON.stringify({request: "GET", scope: "orders"})});
-    }
-}
+    let id = computePositionRowId(position.account_key, position.instrument_key);
+    let closeButtonId = "close:" + id;
 
-stompClient.onWebSocketError = (error) => {
-    console.error('Error with websocket', error);
-    connected = false;
-};
-
-stompClient.onStompError = (frame) => {
-    console.error('Broker reported error: ' + frame.headers['message']);
-    console.error('Additional details: ' + frame.body);
-};
-
-function setConnected() {
-    connected = true;
-}
-
-function connect() {
-    console.log('Connecting...')
-    // let cookie = 'api_key=' + $("#apiKeyElement").val();
-    // document.cookie = cookie;
-    getInstruments();
-}
-
-function getInstrumentSymbol(instrument_key) {
-    var instrument = instruments[instrument_key];
-    if (!instrument) {
-        return "Id: " + instrument_key;
-    }
-    return instrument.symbol;
-}
-
-function getInstrumentDescription(instrument_key) {
-    var instrument = instruments[instrument_key];
-    if (!instrument) {
-        return "Id: " + instrument_key;
-    }
-    return instrument.description;
-}
-
-function computeMarket(instrumentKey) {
-    let instrumentData = marketData[instrumentKey];
-    console.log("Instrument data = " + JSON.stringify(instrumentData));
-    if (instrumentData === undefined) {
-        return;
+    let actions = "";
+    if (position.quantity !== 0) {
+        actions += "<button id='" + closeButtonId + "' class=\"btn btn-default\" type=\"submit\">Close</button>";
     }
 
-    let bid = undefined;
-    let bidSize = undefined;
-    let ask = undefined;
-    let askSize = undefined;
-    let last = undefined;
+    let account = openBroker.getAccount(position.account_key);
+    deleteRow(id);
+    let position_body =
+        "<tr id=" + id + ">"
+        + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
+        + "<td title='" + description + "'>" + symbol + "</td>"
+        + "<td class='right-align'>" + position.quantity + "</td>"
+        + "<td class='right-align'>" + render(position.cost_basis) + "</td>"
+        + "<td class='right-align'>" + render(position.cost) + "</td>"
+        + "<td id='netliq:" + id + "' class='right-align'>" + render(position.net_liq) + "</td>"
+        + "<td id='opengain:" + id + "' class='right-align'>" + render(position.open_gain) + "</td>"
+        + "<td class='right-align'>" + render(position.closed_gain) + "</td>"
+        + "<td class='right-align'>" + actions + "</td>"
+        + "</tr>";
 
-    let depth = instrumentData['depth'];
-    if (depth !== undefined) {
-        let buys = depth['buys'];
-        let sells = depth['sells'];
+    // console.log(position_body);
 
-        if (buys !== undefined) {
-            let buys0 = buys['0'];
-            if (buys0 !== undefined) {
-                bid = buys0['price'];
-                bidSize = buys0['quantity'];
-            }
+    $("#positions_body").append(position_body);
+    if (position.quantity !== 0) {
+        document.getElementById(closeButtonId).addEventListener("click", () => {
+            closePosition(position.account_key, position.instrument_key);
+        });
+    }
+}
+
+function orderStateCallback(orderState) {
+    // console.log("orderStateCallback: " + JSON.stringify(orderState));
+    let id = "ord:" + orderState.order.account_key + ":" + orderState.order.ext_order_id;
+    deleteRow(id);
+
+    let symbol = "";
+    let description = "";
+    for (const [_, leg] of Object.entries(orderState.order.legs)) {
+        if (description.length > 0) {
+            description += "/";
         }
-        if (sells !== undefined) {
-            let sells0 = sells[0];
-            if (sells0 !== undefined) {
-                ask = sells0['ask'];
-                askSize = sells0['quantity'];
-            }
+        description += openBroker.getInstrumentDescription(leg.instrument_key);
+        if (symbol.length > 0) {
+            symbol += "/";
         }
+        symbol += openBroker.getInstrumentSymbol(leg.instrument_key);
     }
 
-    let lastTrade = instrumentData['lastTrade'];
-    if (lastTrade !== undefined) {
-        last = lastTrade.price;
-    }
-    let mark = computeMark(bid, ask, last);
-    return { bid: bid, bidSize: bidSize, ask: ask, askSize: askSize, last: last, mark: mark };
-}
+    let cancelButtonId = "cancel:" + id;
 
-function computeMark(bid, ask, last) {
-    if (bid !== undefined && ask !== undefined) {
-        return (bid + ask) / 2;
+    let actions = "";
+    if (orderState.order_status === 'Pending' ||
+        orderState.order_status === 'Open') {
+        actions += "<button id='" + cancelButtonId + "' className='btn btn-default' type='submit'>Cancel</button>";
     }
-    if (bid !== undefined) {
-        return bid;
-    }
-    if (ask !== undefined) {
-        return ask;
-    }
-    if (last !== undefined) {
-        return last;
-    }
-    return undefined;
-}
+    let account = openBroker.getAccount(orderState.order.account_key);
 
-function updatePosition(accountKey, instrumentKey, mark) {
-    console.log("updatePosition accountKey " + accountKey + " and instrumentKey " + instrumentKey);
-    let position = accounts[accountKey]['positions'][instrumentKey];
-    if (position === undefined) {
-        console.log("No position for accountKey " + accountKey + " and instrumentKey " + instrumentKey);
-        return;
+    let orderStatus = "<td";
+    if (orderState.order_status === "Rejected" && orderState.reject_reason !== null) {
+        orderStatus += " title='" + orderState.reject_reason + "'";
     }
-    let id = computePositionRowId(accountKey, instrumentKey);
-    let opengainid = "opengain:" + id;
-    let netliqid = "netliq:" + id;
+    orderStatus += " >" + renderOrderStatus(orderState.order_status) + "</td>";
 
-    let netLiqElement = document.getElementById(netliqid);
-    let openGainElement = document.getElementById(opengainid);
+    $("#orders_body").append(
+        "<tr id=" + id + ">"
+        + "<td title='" + account.account_name + "' class='right-align'>"+ account.account_number + "</td>"
+        + "<td class='right-align'>"+ orderState.order.order_number + "</td>"
+        + "<td title='" + description + "' class='right-align'>" + symbol + "</td>"
+        + orderStatus
+        + "<td class='right-align'>"+ orderState.order.quantity + "</td>"
+        + "<td class='right-align'>"+ render(orderState.order.price) + "</td>"
+        + "<td>" + actions + "</td>"
+        + "</td>");
 
-    let netLiq = '-';
-    if (mark !== undefined) {
-        netLiq = (position.quantity * mark);
-        if (netLiqElement !== undefined && netLiqElement != null) {
-            netLiqElement.innerHTML = netLiq.toFixed(2);
-        }
-        else {
-            console.log("No position netliq for: " + netliqid);
-        }
-        if (openGainElement !== undefined && openGainElement != null) {
-            openGainElement.innerHTML = (netLiq - position.cost).toFixed(2)
-        } else {
-            console.log("No position open gain for: " + opengainid);
-        }
-    } else {
-        netLiqElement.innerHTML = "-";
-        openGainElement.innerHTML = "-";
-
+    if (orderState.order_status === 'Pending' ||
+        orderState.order_status === 'Open') {
+        document.getElementById(cancelButtonId).addEventListener("click", () => {
+            openBroker.cancelOrder(orderState.order.account_key, orderState.order.ext_order_id);
+        });
     }
 
 }
 
-function updatePositions(instrumentKey, mark) {
-    for (let accountKey in accounts) {
-        updatePosition(accountKey, instrumentKey, mark);
+function balanceCallback(balance, totals) {
+    // console.log("balanceCallback: " + JSON.stringify(balance)
+    //     + ", totals: " + JSON.stringify(totals));
+
+    let account = openBroker.getAccount(balance.account_key);
+    let posbalanceid = "accbal:" + balance.account_key;
+    let postotalsid = "acctot:" + balance.account_key;
+
+    deleteRow(posbalanceid);
+    deleteRow(postotalsid);
+
+    $("#positions_body").append(
+        "<tr id='" + posbalanceid + "'>"
+        + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
+        + "<td title='cash balance'>-cash-</td>"
+        + "<td></td>"
+        + "<td></td>"
+        + "<td></td>"
+        + "<td class='.right-align'>" + render(balance.cash) + "</td>"
+        + "<td></td>"
+        + "<td></td>"
+        + "</tr>");
+    // TODO maybe don't show sub-totals if there is only one account shown.
+    $("#positions_body").append(
+        "<tr id='" + postotalsid + "'>"
+        + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
+        + "<td title='sub-totals'>-sub-totals-</td>"
+        + "<td></td>"
+        + "<td></td>"
+        + "<td></td>"
+        + "<td class='.right-align'>" + render(totals.net_liq) + "</td>"
+        + "<td></td>"
+        + "<td></td>"
+        + "</tr>");
+
+}
+
+function totalsCallback(totals) {
+    // console.log("totalsCallback: " + JSON.stringify(totals));
+
+    let id = "totals:all";
+    deleteRow(id);
+    $("#positions_body").append(
+        "<tr id='" + id + "'>"
+        + "<td>All</td>"
+        + "<td title='totals'>-totals-</td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'>" + render(totals.cost) + "</td>"
+        + "<td id='netliq:" + id + "' class='right-align'>" + render(totals.net_liq) + "</td>"
+        + "<td id='opengain:" + id + "' class='right-align'>" + render(totals.open_gain) + "</td>"
+        + "<td class='right-align'>" + render(totals.closed_gain) + "</td>"
+        + "<td class='right-align'></td>"
+        + "</tr>");
+
+}
+
+function deleteRow(rowid) {
+    let row = document.getElementById(rowid);
+    if (row !== null) {
+        row.parentNode.removeChild(row);
     }
 }
 
-function updateMarketData(instrumentKey) {
+function closePosition(accountKey, instrumentKey) {
+    let position = openBroker.getPosition(accountKey, instrumentKey);
+    document.getElementById("order_quantity").value = -1 * position.quantity;
+    let costBasis = render(position.cost / position.quantity);
+    document.getElementById("order_price").value = costBasis;
+    document.getElementById("order_instrument").value = position.instrument_key;
+}
 
-    let instrumentData = marketData[instrumentKey];
-    console.log("Instrument data = " + JSON.stringify(instrumentData));
-    let market = computeMarket(instrumentKey);
+function computePositionRowId(accountKey, instrumentKey) {
+    return "pos:" + accountKey + ":" + instrumentKey;
+}
 
-    updatePositions(instrumentKey, market.mark);
+function marketCallback(market) {
+    //console.log("market: " + JSON.stringify(market));
 
-    let marketDataId = "marketData:" + instrumentKey;
+    let marketDataId = "marketData:" + market.instrument_key;
     deleteRow(marketDataId);
-    let description = getInstrumentDescription(instrumentKey);
-    let symbol = getInstrumentSymbol(instrumentKey);
+    let description = openBroker.getInstrumentDescription(market.instrument_key);
+    let symbol = openBroker.getInstrumentSymbol(market.instrument_key);
 
     let text = "<tr id=" + marketDataId + ">";
     text += "<td title='" + description + "'>" + symbol + "</td>"
 
     text += "<td>";
-    if (market.bid !== undefined && market.bidSize !== undefined) {
-        text += market.bid.toFixed(2) + "@" + market.bidSize;
+    if (market.bid !== undefined && market.bid_size !== undefined) {
+        text += render(market.bid) + "@" + market.bid_size;
     } else {
         text += "-";
     }
@@ -210,15 +216,15 @@ function updateMarketData(instrumentKey) {
 
     text += "<td>";
     if (market.mark !== undefined) {
-        text += market.mark.toFixed(2);
+        text += render(market.mark);
     } else {
         text += "-";
     }
     text += "</td>";
 
     text += "<td>";
-    if (market.ask !== undefined && market.askSize !== undefined) {
-        text += market.ask.toFixed(2) + "@" + market.askSize;
+    if (market.ask !== undefined && market.ask_size !== undefined) {
+        text += render(market.ask) + "@" + market.ask_size;
     } else {
         text += "-";
     }
@@ -226,7 +232,7 @@ function updateMarketData(instrumentKey) {
 
     text += "<td>";
     if (market.last != undefined) {
-        text += market.last.toFixed(2);
+        text += render(market.last);
     } else {
         text += "-";
     }
@@ -244,338 +250,41 @@ function updateMarketData(instrumentKey) {
     // }
 }
 
-function setMarketData(instrumentKey, category, data)    {
-    if (marketData[instrumentKey] === undefined) {
-        marketData[instrumentKey] = {};
-    }
-    let oldData = marketData[instrumentKey][category];
-    if (oldData !== undefined) {
-        // console.log("Old market data version number: " + oldData.version_number +
-        //     ", new market data version number: " + data.version_number);
-        if (oldData.version_number >= data.version_number) {
-            return false;
-        }
-    } else {
-        marketData[instrumentKey][category] = data;
-    }
-    console.log("Market data = " + JSON.stringify(marketData));
-    updateMarketData(instrumentKey);
-
-    return true;
-}
-
-
-function handleDepth(stompMessage) {
-    let message = stompMessage.body;
-   // console.log('Got depth message: ' + message);
-    let depth = JSON.parse(message);
-    setMarketData(depth.instrument_key, 'depth', depth);
-}
-
-function handleLastTrade(stompMessage) {
-    let message = stompMessage.body;
-
-  //  console.log('Got last trade message: ' + message);
-    let lastTrade = JSON.parse(message);
-    setMarketData(lastTrade.instrument_key, 'lastTrade', lastTrade);
-}
-
-function handleBalance(balance) {
-    if (balance !== undefined && balance !== null) {
-        let account = accounts[balance.account_key];
-
-        + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
-
-        deleteRow('posbalance');
-        $("#positions_body").append(
-            "<tr id=posbalance>"
-            + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
-            + "<td title='cash balance'>-cash-</td>"
-            + "<td></td>"
-            + "<td></td>"
-            + "<td></td>"
-            + "<td class='.right-align'>" + (balance.cash).toFixed(2) + "</td>"
-            + "<td></td>"
-            + "<td></td>"
-            + "</tr>");
-    }
-}
-
-function deleteRow(rowid) {
-    var row = document.getElementById(rowid);
-    if (row !== null) {
-        row.parentNode.removeChild(row);
-    }
-}
-
-function closePosition(accountKey, instrumentKey) {
-    let position = accounts[accountKey]['positions'][instrumentKey];
-    document.getElementById("order_quantity").value = -1 * position.quantity;
-    costBasis = (position.cost / position.quantity).toFixed(2);
-    document.getElementById("order_price").value = costBasis;
-    document.getElementById("order_instrument").value = position.instrument_key;
-}
-
-function computePositionRowId(accountKey, instrumentKey) {
-    return "pos:" + accountKey + ":" + instrumentKey;
-}
-
-function handlePosition(position) {
-  //  console.log("Received position: " + JSON.stringify(position));
-    if (position !== undefined && position !== null) {
-        let old_position = accounts[position.account_key]['positions'][position.instrument_key];
-        if (old_position !== undefined) {
-            // console.log("Old position version number: " + old_position.version_number +
-            //     ", new position version number: " + position.version_number);
-            if (old_position.version_number >= position.version_number) {
-                console.log("Old position version number: " + old_position.version_number +
-                    ", new position version number: " + position.version_number +
-                    ", skipping update");
-                return;
-            }
-        } else {
-            accounts[position.account_key]['positions'][position.instrument_key] = position;
-        }
-        let id = computePositionRowId(position.account_key, position.instrument_key);
-        deleteRow(id);
-
-        let description = getInstrumentDescription(position.instrument_key);
-        let symbol = getInstrumentSymbol(position.instrument_key);
-        let closeButtonId = "close:" + id;
-
-        let actions = "";
-        let costBasis = 0;
-        if (position.quantity !== 0) {
-            costBasis = (position.cost / position.quantity).toFixed(2);
-            actions += "<button id='" + closeButtonId + "' class=\"btn btn-default\" type=\"submit\">Close</button>";
-        }
-
-        let account = accounts[position.account_key];
-
-        let position_body =
-            "<tr id=" + id + ">"
-            + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
-            + "<td title='" + description + "'>" + symbol + "</td>"
-            + "<td class='right-align'>" + position.quantity + "</td>"
-            + "<td class='right-align'>" + costBasis + "</td>"
-            + "<td class='right-align'>" + position.cost.toFixed(2) + "</td>"
-            + "<td id='netliq:" + id + "' class='right-align'>" + "0" + "</td>"
-            + "<td id='opengain:" + id + "' class='right-align'>" + "-" + "</td>"
-            + "<td class='right-align'>" + position.closed_gain.toFixed(2) + "</td>"
-            + "<td class='right-align'>" + actions + "</td>"
-            + "</tr id=" + position.instrument_key + ">";
-
-        console.log(position_body);
-
-        $("#positions_body").append(position_body);
-        if (position.quantity !== 0) {
-            document.getElementById(closeButtonId).addEventListener("click", () => {
-                closePosition(position.account_key, position.instrument_key);
-            });
-        }
-        let market = computeMarket(position.instrument_key);
-        if (market !== undefined) {
-            updatePosition(position.account_key, position.instrument_key, market.mark);
-        }
-    }
-}
-
-function cancelOrder(accountKey, extOrderId) {
-    let xhttp = new XMLHttpRequest();
-
-    let path = "/accounts/" + accountKey + "/orders/" + extOrderId;
-    xhttp.open("DELETE", path, true);
-    xhttp.setRequestHeader("Content-type", "application/json");
-    xhttp.send();
-}
-
-function handleOrderState(orderState) {
-    if (orderState !== undefined && orderState !== null) {
-        let oldOrderState = accounts[orderState.order.account_key]['orders'][orderState.order.ext_order_id];
-
-        if (oldOrderState !== undefined) {
-            // console.log("Old order state version number: " + oldOrderState.version_number +
-            //     ", new order state  version number: " + orderState.version_number);
-            if (oldOrderState.version_number >= orderState.version_number) {
-                console.log("Old order state version number: " + oldOrderState.version_number +
-                    ", new order state version number: " + orderState.version_number +
-                    ", skipping update");
-                return;
-            }
-        } else {
-            accounts[orderState.order.account_key]['orders'][orderState.order.ext_order_id] = orderState;
-        }
-
-        let id = "ord:" + orderState.order.account_key + ":" + orderState.order.ext_order_id;
-        deleteRow(id);
-
-        let symbol = "";
-        let description = "";
-        for (const [_, leg] of Object.entries(orderState.order.legs)) {
-            if (description.length > 0) {
-                description += "/";
-            }
-            description += getInstrumentDescription(leg.instrument_key);
-            if (symbol.length > 0) {
-                symbol += "/";
-            }
-            symbol += getInstrumentSymbol(leg.instrument_key);
-        }
-
-        let cancelButtonId = "cancel:" + id;
-
-        let actions = "";
-        if (orderState.order_status === 'Pending' ||
-            orderState.order_status === 'Open') {
-            actions += "<button id='" + cancelButtonId + "' className='btn btn-default' type='submit'>Cancel</button>";
-        }
-        let account = accounts[orderState.order.account_key];
-
-        let orderStatus = "<td";
-        if (orderState.order_status === "Rejected" && orderState.reject_reason !== null) {
-            orderStatus += " title='" + orderState.reject_reason + "'";
-        }
-        orderStatus += " >" + orderState.order_status + "</td>";
-
-        $("#orders_body").append(
-            "<tr id=" + id + ">"
-            + "<td title='" + account.account_name + "' class='right-align'>"+ account.account_number + "</td>"
-            + "<td class='right-align'>"+ orderState.order.order_number + "</td>"
-            + "<td title='" + description + "' class='right-align'>" + symbol + "</td>"
-            + orderStatus
-            + "<td class='right-align'>"+ orderState.order.quantity + "</td>"
-            + "<td class='right-align'>"+ orderState.order.price.toFixed(2) + "</td>"
-            + "<td>" + actions + "</td>"
-            + "</td>");
-
-        if (orderState.order_status === 'Pending' ||
-            orderState.order_status === 'Open') {
-            document.getElementById(cancelButtonId).addEventListener("click", () => {
-                cancelOrder(orderState.order.account_key, orderState.order.ext_order_id);
-            });
-        }
-    }
-}
-function handleUpdate(stompMessage) {
-    let message = stompMessage.body;
-    let account_update = JSON.parse(message);
-
-    balance = account_update.balance;
-    position = account_update.position;
-    orderState = account_update.order_state;
-    handleBalance(balance);
-    handlePosition(position);
-    handleOrderState(orderState);
-}
-
-function processAccounts(account_data) {
-  //  console.log('Got accounts:' + JSON.stringify(account_data));
-    accounts = account_data;
-    $("#account-data").show();
-    let order_account_select = document.getElementById('order_account');
-
-    Object.values(account_data).forEach((account) => {
-        //    console.log('account: ' + JSON.stringify(account));
-        account['positions'] = {};
-        account['orders'] = {};
-        $("#accounts_body").append(
-            "<tr>"
-            + "<td>"+ account.account_number + "</td>"
-            + "<td>" + account.account_name + "</td>"
-            + "<td>" + account.nickname + "</td>");
-        subscribeAccount(account.account_key, handleUpdate);
-        var opt = document.createElement('option');
-        opt.value = account.account_key;
-        opt.innerHTML = account.account_number;
-        order_account_select.appendChild(opt);
-    });
-}
-
-function processInstruments(instrument_data) {
-  //  console.log('Got instruments:' + JSON.stringify(instrument_data));
-    instruments = instrument_data;
-    let order_instrument_select = document.getElementById('order_instrument');
-
-    Object.values(instruments).forEach((instrument) => {
-        if (instrument.status != 'Active') {
-            return;
-        }
-  //      console.log('instrument: ' + JSON.stringify(instrument));
-        subscribe('/markets/' + instrument.instrument_key + '/depth', handleDepth);
-        subscribe('/markets/' + instrument.instrument_key + '/last_trade', handleLastTrade);
-        var opt = document.createElement('option');
-        opt.value = instrument.instrument_key;
-        opt.innerHTML = instrument.description;
-        order_instrument_select.appendChild(opt);
-    })
-
-    getAccounts();
-
-    stompClient.activate();
-}
-
-function getAccounts() {
-    let xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            processAccounts(JSON.parse(this.responseText));
-        }
-    };
-    xhttp.open("GET", "/accounts", true);
-    xhttp.setRequestHeader("Content-type", "application/json");
-    xhttp.send();
-}
-
-function getInstruments() {
-    let xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            processInstruments(JSON.parse(this.responseText));
-        }
-    };
-    xhttp.open("GET", "/instruments", true);
-    xhttp.setRequestHeader("Content-type", "application/json");
-    xhttp.send();
-}
-
 function submitOrder() {
     let quantity = document.getElementById("order_quantity").value;
     let price = document.getElementById("order_price").value;
     let instrument_key = document.getElementById("order_instrument").value;
     let account_key = document.getElementById("order_account").value;
 
-    // alert("Place order for " + quantity + " @ " + price + " for " + instrument_key);
-
-    let xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            //processInstruments(JSON.parse(this.responseText));
-        }
-    };
-    let path = "/accounts/" + account_key + "/orders";
-    xhttp.open("POST", path, true);
-    xhttp.setRequestHeader("Content-type", "application/json");
-
-    body = JSON.stringify({
-        price: Number(price),
-        quantity: Number(quantity),
-        legs: [
-            {
-                ratio: Number(1),
-                instrument_key: instrument_key
-            }
-        ]
-    });
-
-    xhttp.send(body);
     document.getElementById("order_quantity").value = "";
     document.getElementById("order_price").value = "";
 
+    openBroker.submitOrder(account_key, instrument_key, quantity, price);
 }
 
-$(function () {
-    $("form").on('submit', (e) => e.preventDefault());
-    $( "#order_submit" ).click(() => submitOrder());
-});
+function render(num) {
+    if (num === undefined) {
+        return "-";
+    }
+    else return num.toFixed(2);
+}
 
-connect();
+function renderOrderStatus(orderStatus) {
+    switch (orderStatus) {
+        case "PendingCancel": return "Pending Cancel";
+        default: return orderStatus;
+    }
+}
+
+$( "#order_submit" ).click(() => submitOrder());
+
+openBroker.instrumentCallback = instrumentCallback;
+openBroker.accountCallback = accountCallback;
+openBroker.positionCallback = positionCallback;
+// openBroker.depthCallback = depthCallback;
+// openBroker.lastTradeCallback = lastTradeCallback;
+openBroker.orderStateCallback = orderStateCallback;
+openBroker.balanceCallback = balanceCallback;
+openBroker.totalsCallback = totalsCallback;
+openBroker.marketCallback = marketCallback;
+openBroker.start();
