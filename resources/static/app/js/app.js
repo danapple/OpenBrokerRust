@@ -208,7 +208,7 @@ function marketCallback(market) {
 
     text += "<td>";
     if (market.bid !== undefined && market.bid_size !== undefined) {
-        text += render(market.bid) + "@" + market.bid_size;
+        text +=  market.bid_size + "@" + render(market.bid);
     } else {
         text += "-";
     }
@@ -224,7 +224,7 @@ function marketCallback(market) {
 
     text += "<td>";
     if (market.ask !== undefined && market.ask_size !== undefined) {
-        text += render(market.ask) + "@" + market.ask_size;
+        text += market.ask_size + "@" + render(market.ask);
     } else {
         text += "-";
     }
@@ -238,16 +238,7 @@ function marketCallback(market) {
     }
     text += "</td>";
 
-
     $("#markets_table").append(text);
-
-    // let marketDataElement = document.getElementById(marketDataId);
-    // if (marketDataElement !== undefined && marketDataElement != null) {
-    //     marketDataElement.innerHTML = market;
-    // }
-    // else {
-    //     deleteRow(id);
-    // }
 }
 
 function submitOrder() {
