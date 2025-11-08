@@ -248,16 +248,20 @@ export class OpenBroker {
         let accountOpenGain = 0;
         let accountClosedGain = 0;
         let accountNetLiq = 0;
-        Object.values(positions).forEach(otherPosition => {
-            accountCost += otherPosition['cost'];
-            accountOpenGain += otherPosition['open_gain'];
-            accountClosedGain += otherPosition['closed_gain'];
-            accountNetLiq += otherPosition['net_liq'];
+        let accountCostAbs = 0;
+        Object.values(positions).forEach(position => {
+            accountCost += position['cost'];
+            accountOpenGain += position['open_gain'];
+            accountClosedGain += position['closed_gain'];
+            accountNetLiq += position['net_liq'];
+            accountCostAbs += Math.abs(position['cost']);
         });
         accountTotals['cost'] = accountCost;
         accountTotals['open_gain'] = accountOpenGain;
         accountTotals['closed_gain'] = accountClosedGain;
         accountTotals['net_liq'] = accountNetLiq;
+        accountTotals['cost_abs'] = accountCostAbs;
+        accountTotals['open_gain_percent'] = accountOpenGain / accountCostAbs * 100;
 
         accountTotals['net_liq'] += balance['cash'];
 
@@ -271,6 +275,7 @@ export class OpenBroker {
         let totalOpenGain = 0;
         let totalClosedGain = 0;
         let totalNetLiq = 0;
+        let totalCostAbs = 0;
         Object.values(this.#accountHolders).forEach(accountHolder => {
             let accountTotals = accountHolder['totals'];
             if (accountTotals === undefined) {
@@ -281,6 +286,7 @@ export class OpenBroker {
                 totalOpenGain += accountTotals['open_gain'];
                 totalClosedGain += accountTotals['closed_gain'];
                 totalNetLiq += accountTotals['net_liq'];
+                totalCostAbs += accountTotals['cost_abs'];
             }
         });
 
@@ -288,6 +294,8 @@ export class OpenBroker {
         this.#totals['open_gain'] = totalOpenGain;
         this.#totals['closed_gain'] = totalClosedGain;
         this.#totals['net_liq'] = totalNetLiq;
+        this.#totals['cost_abs'] = totalCostAbs;
+        this.#totals['open_gain_percent'] = totalOpenGain / totalCostAbs * 100;
 
         if (this.totalsCallback !== undefined || this.totalsCallback !== null) {
             this.totalsCallback(this.#totals);
@@ -306,10 +314,12 @@ export class OpenBroker {
             position['market'] = market;
             position['net_liq'] = netLiq;
             position['open_gain'] = netLiq - position['cost'];
+            position['open_gain_percent'] = position['open_gain'] / Math.abs(position['cost']) * 100;
         } else {
             position['market'] = undefined;
             position['net_liq'] = undefined;
             position['open_gain'] = undefined;
+            position['open_gain_percent'] = undefined;
         }
         // console.log("updatePositionWithMarket position now " + JSON.stringify(position));
 

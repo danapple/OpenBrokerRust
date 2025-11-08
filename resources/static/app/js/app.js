@@ -2,8 +2,6 @@ import {OpenBroker} from "./openbroker.js";
 
 let openBroker = new OpenBroker();
 
-let inFlightOrder = false;
-
 function instrumentCallback(instrument) {
     // console.log("instrumentCallback: " + JSON.stringify(instrument));
     let order_instrument_select = document.getElementById('order_instrument');
@@ -48,13 +46,14 @@ function positionCallback(position) {
     let position_body =
         "<tr id=" + id + ">"
         + "<td title='" + account.account_name + "'>" + account.account_number + "</td>"
-        + "<td title='" + description + "'>" + symbol + "</td>"
+        + "<td class='right-align' title='" + description + "'>" + symbol + "</td>"
         + "<td class='right-align'>" + position.quantity + "</td>"
         + "<td class='right-align'>" + render(position.cost_basis) + "</td>"
         + "<td class='right-align'>" + render(position.cost) + "</td>"
         + "<td id='netliq:" + id + "' class='right-align'>" + render(position.net_liq) + "</td>"
-        + "<td id='opengain:" + id + "' class='right-align'>" + render(position.open_gain) + "</td>"
-        + "<td class='right-align'>" + render(position.closed_gain) + "</td>"
+        + "<td id='opengain:" + id + "' class='right-align'>" + colorRender(position.open_gain) + "</td>"
+        + "<td id='opengainpercent:" + id + "' class='right-align'>" + colorRender(position.open_gain_percent, "%") + "</td>"
+        + "<td class='right-align'>" + colorRender(position.closed_gain) + "</td>"
         + "<td class='right-align'>" + actions + "</td>"
         + "</tr>";
 
@@ -95,11 +94,13 @@ function orderStateCallback(orderState) {
     }
     let account = openBroker.getAccount(orderState.order.account_key);
 
-    let orderStatus = "<td";
+    let orderStatus = "<td class='right-align'";
     if (orderState.order_status === "Rejected" && orderState.reject_reason !== null) {
         orderStatus += " title='" + orderState.reject_reason + "'";
     }
     orderStatus += " >" + renderOrderStatus(orderState.order_status) + "</td>";
+
+    let order_side = orderState.order.quantity > 0 ? "Buy" : "Sell";
 
     $("#orders_body").append(
         "<tr id=" + id + ">"
@@ -107,8 +108,9 @@ function orderStateCallback(orderState) {
         + "<td class='right-align'>"+ orderState.order.order_number + "</td>"
         + "<td title='" + description + "' class='right-align'>" + symbol + "</td>"
         + orderStatus
-        + "<td class='right-align'>"+ orderState.order.quantity + "</td>"
-        + "<td class='right-align'>"+ render(orderState.order.price) + "</td>"
+        + "<td class='right-align'>" + order_side + "</td>"
+        + "<td class='right-align'>" + Math.abs(orderState.order.quantity) + "</td>"
+        + "<td class='right-align'>" + render(orderState.order.price) + "</td>"
         + "<td>" + actions + "</td>"
         + "</td>");
 
@@ -135,25 +137,26 @@ function balanceCallback(balance, totals) {
     $("#positions_body").append(
         "<tr id='" + posbalanceid + "'>"
         + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
-        + "<td title='cash balance'>-cash-</td>"
-        + "<td></td>"
-        + "<td></td>"
-        + "<td></td>"
-        + "<td class='.right-align'>" + render(balance.cash) + "</td>"
-        + "<td></td>"
-        + "<td></td>"
+        + "<td class='right-align' title='cash balance'>-cash-</td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'>" + render(balance.cash) + "</td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'></td>"
         + "</tr>");
     // TODO maybe don't show sub-totals if there is only one account shown.
     $("#positions_body").append(
         "<tr id='" + postotalsid + "'>"
         + "<td title='" + account.account_name + "'>"+ account.account_number + "</td>"
         + "<td title='sub-totals'>-sub-totals-</td>"
-        + "<td></td>"
-        + "<td></td>"
-        + "<td></td>"
-        + "<td class='.right-align'>" + render(totals.net_liq) + "</td>"
-        + "<td></td>"
-        + "<td></td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'></td>"
+        + "<td class='right-align'>" + render(totals.cost) + "</td>"
+        + "<td class='right-align'>" + colorRender(totals.net_liq) + "</td>"
+        + "<td class='right-align'>" + colorRender(totals.open_gain) + "</td>"
+        + "<td class='right-align'>" + colorRender(totals.open_gain_percent, "%") + "</td>"
+        + "<td class='right-align'>" + colorRender(totals.closed_gain) + "</td>"
         + "</tr>");
 
 }
@@ -166,13 +169,14 @@ function totalsCallback(totals) {
     $("#positions_body").append(
         "<tr id='" + id + "'>"
         + "<td>All</td>"
-        + "<td title='totals'>-totals-</td>"
+        + "<td class='right-align' title='totals'>-totals-</td>"
         + "<td class='right-align'></td>"
         + "<td class='right-align'></td>"
         + "<td class='right-align'>" + render(totals.cost) + "</td>"
-        + "<td id='netliq:" + id + "' class='right-align'>" + render(totals.net_liq) + "</td>"
-        + "<td id='opengain:" + id + "' class='right-align'>" + render(totals.open_gain) + "</td>"
-        + "<td class='right-align'>" + render(totals.closed_gain) + "</td>"
+        + "<td id='netliq:" + id + "' class='right-align'>" + colorRender(totals.net_liq) + "</td>"
+        + "<td id='opengain:" + id + "' class='right-align'>" + colorRender(totals.open_gain) + "</td>"
+        + "<td id='opengain:" + id + "' class='right-align' >" + colorRender(totals.open_gain_percent, "%") + "</td>"
+        + "<td class='right-align'>" + colorRender(totals.closed_gain) + "</td>"
         + "<td class='right-align'></td>"
         + "</tr>");
 
@@ -187,7 +191,8 @@ function deleteRow(rowid) {
 
 function closePosition(accountKey, instrumentKey) {
     let position = openBroker.getPosition(accountKey, instrumentKey);
-    document.getElementById("order_quantity").value = -1 * position.quantity;
+    document.getElementById("order_quantity").value = Math.abs(position.quantity);
+    document.getElementById("order_side").value = position.quantity > 0 ? "buy" : "sell";
     let costBasis = render(position.cost / position.quantity);
     document.getElementById("order_price").value = costBasis;
     document.getElementById("order_instrument").value = position.instrument_key;
@@ -206,7 +211,7 @@ function marketCallback(market) {
     let symbol = openBroker.getInstrumentSymbol(market.instrument_key);
 
     let text = "<tr id=" + marketDataId + ">";
-    text += "<td title='" + description + "'>" + symbol + "</td>"
+    text += "<td class='right-align' title='" + description + "'>" + symbol + "</td>"
 
     text += "<td>";
     if (market.bid !== undefined && market.bid_size !== undefined) {
@@ -244,21 +249,20 @@ function marketCallback(market) {
 }
 
 function submitOrder() {
-    if (inFlightOrder) {
-        return;
-    }
-    let quantity = document.getElementById("order_quantity").value;
+    let side = document.getElementById("order_side").value;
+    let quantity = Math.abs(document.getElementById("order_quantity").value);
     let price = document.getElementById("order_price").value;
     let instrument_key = document.getElementById("order_instrument").value;
     let account_key = document.getElementById("order_account").value;
-    if (quantity != 0) {
-        inFlightOrder = true;
+    if (side === "sell") {
+        quantity *= -1;
+    }
+    if (quantity !== 0) {
         openBroker.submitOrder(account_key, instrument_key, quantity, price);
     }
 }
 
 function submitOrderCallback(status, text) {
-    inFlightOrder = false;
     if (status === 200) {
         document.getElementById("order_quantity").value = "";
         document.getElementById("order_price").value = "";
@@ -274,10 +278,30 @@ function cancelOrderCallback(status, text) {
 }
 
 function render(num) {
-    if (num === undefined) {
+    if (num === undefined || isNaN(num)) {
         return "-";
     }
-    else return num.toFixed(2);
+    return num.toLocaleString('en', {useGrouping:true, minimumFractionDigits: 2,
+        maximumFractionDigits: 2,});
+}
+
+function colorRender(num, suffix) {
+    let res = render(num);
+    if (res === undefined || isNaN(res)) {
+        return "-";
+    }
+    let cls = "";
+    if (num > 0) {
+        cls = "greencell";
+    } else if (num < 0) {
+        cls = "redcell";
+    } else {
+        cls = "";
+    }
+    if (suffix !== undefined) {
+        res += suffix;
+    }
+    return "<span class='" + cls + "'>" + res + "</span>";
 }
 
 function renderOrderStatus(orderStatus) {

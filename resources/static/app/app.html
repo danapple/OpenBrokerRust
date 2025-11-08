@@ -2,59 +2,75 @@
 <html class="no-js" lang="">
 
 <head>
-  <title>Hello from OpenBroker</title>
-
+  <title>OpenBroker Trading Experience</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<!--  <meta name="viewport" content="width=device-width, initial-scale=1">-->
   <link rel="stylesheet" href="app/css/main.css">
-  <meta name="description" content="">
+<!--  <meta name="description" content="">-->
+<!--  <meta property="og:title" content="">-->
+<!--  <meta property="og:type" content="">-->
+<!--  <meta property="og:url" content="">-->
+<!--  <meta property="og:image" content="">-->
+<!--  <meta property="og:image:alt" content="">-->
 
-  <meta property="og:title" content="">
-  <meta property="og:type" content="">
-  <meta property="og:url" content="">
-  <meta property="og:image" content="">
-  <meta property="og:image:alt" content="">
-
-  <link rel="icon" href="/old/favicon.ico" sizes="any">
-  <link rel="icon" href="/old/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="old/icon.png">
-
+<!--  <link rel="icon" href="/old/favicon.ico" sizes="any">-->
+<!--  <link rel="icon" href="/old/icon.svg" type="image/svg+xml">-->
+<!--  <link rel="apple-touch-icon" href="old/icon.png">-->
   <meta name="theme-color" content="#fafafa">
-
   <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-
   <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
-
   <script src="app/js/sorttable.js"></script>
   <script type="module" src="app/js/openbroker.js"></script>
-
 </head>
 
 <body>
-<div id="logout-content" class="container">
-  <a href="/logmeout">Logout</a>
-  </div>
+
 <noscript><h2 style="color: #ff0000">Seems your browser doesn't support Javascript! Websocket relies on Javascript being
-  enabled. Please enable
-  Javascript and reload this page!</h2></noscript>
+  enabled. Please enable Javascript and reload this page!</h2></noscript>
 
 <div id="main-content" class="main-style">
-  <div id="submit-data" class="container">
-    <div class="col-md-12">
-      <form>
-        <label for="order_account">Account</label>
-        <select name="order_account" id="order_account">
-        </select>
-        <label for="order_instrument">Instrument</label>
-        <select name="order_instrument" id="order_instrument">
-        </select>
-        <label for="order_quantity">Quantity</label>
-        <input id="order_quantity" size="3" required type="number"/>
-        <label for="order_price">Price</label>
-        <input id="order_price" required type="number"  min=".01"/>
-        <input id="order_submit" type="button" value="Submit"/>
-      </form>
+
+  <div class="grid">
+    <div>
+      OpenBroker Trading Experience
     </div>
+    <div id="logout-content" class="container">
+      <a href="/logmeout">Logout</a>
+    </div>
+  </div>
+
+  <div style="height:10px"></div>
+  <div>
+    <div>
+      <div>
+      Place a new order
+      </div>
+      <div id="submit-data" class="container">
+        <div class="col-md-12">
+          <form>
+            <label for="order_account">Account</label>
+            <select name="order_account" id="order_account">
+            </select>
+            <label for="order_instrument">Instrument</label>
+            <select name="order_instrument" id="order_instrument">
+            </select>
+            <label for="order_side">Side</label>
+            <select name="order_side" id="order_side">
+              <option value="Buy">Buy</option>
+              <option value="sell">Sell</option>
+            </select>
+            <label for="order_quantity">Quantity</label>
+            <input id="order_quantity" size="3" required type="number" min="1"/>
+            <label for="order_price" min="0.01">Price</label>
+            <input id="order_price" required type="number"  min=".01"/>
+            <input id="order_submit" type="button" value="Submit"/>
+          </form>
+        </div>
+      </div>
+    </div>
+  <div style="height:50px"></div>
+  <div>
+    Accounts
   </div>
   <div id="account-data" class="col-md-6" hidden>
     <div class="row">
@@ -73,8 +89,11 @@
       </div>
     </div>
 
-
-    <div class="row">
+    <div style="height:50px"></div>
+    <div>
+      Market data
+    </div>
+    <div style="resize:vertical"  class="row">
       <div class="col-md-12">
         <table id="markets_table" class="table table-striped">
           <thead>
@@ -91,8 +110,12 @@
         </table>
       </div>
     </div>
-    <div class="row">
-      <div class="col-md-12">
+    <div style="height:50px"></div>
+    <div>
+      Positions
+    </div>
+    <div class="row" style="resize:vertical; overflow-y:scroll; overflow-x:auto; width:1100px">
+      <div class="col-md-12 " >
         <table id="positions_table" class="sortable">
           <thead>
           <tr>
@@ -103,6 +126,7 @@
             <th class='right-align'>Cost</th>
             <th class='right-align'>NetLiq</th>
             <th class='right-align'>Open Gain</th>
+            <th class='right-align'>Open Gain %</th>
             <th class='right-align'>Closed Gain</th>
             <th class='right-align'>Action</th>
           </tr>
@@ -112,8 +136,12 @@
         </table>
       </div>
     </div>
+    <div style="height:50px"></div>
+    <div>
+      Orders
+    </div>
     <div class="row">
-      <div class="col-md-12">
+      <div class="col-md-12" style="resize:vertical; overflow-y:scroll; overflow-x:auto; height:400px; width:1100px">
         <table id="orders_table" class="sortable">
           <thead>
           <tr>
@@ -121,6 +149,7 @@
             <th class="sorttable_numeric">Order Number</th>
             <th class='right-align'>Instrument</th>
             <th class='right-align'>Status</th>
+            <th class='right-align'>Side</th>
             <th class='right-align'>Quantity</th>
             <th class='right-align'>Price</th>
             <th>Action</th>

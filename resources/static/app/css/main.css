@@ -6,18 +6,36 @@ body {
 }
 
 .main-style {
-    font-size: 24px;
+    font-size: 18px;
     margin: 0 auto 20px;
     color: white;
     border-radius: 5px;
 }
-#td {
+
+a {
+    display: inline-block;
+    background: #1010a0;
+    color: white;
+    padding: 5px 10px;
+}
+
+tbody tr:nth-child(odd) {
+    background-color: #020220;
+    color: #fff;
+}
+
+th {
     font-family: ui-monospace;
+    padding: 1px 20px;
+}
+
+td {
+    font-family: ui-monospace;
+    padding: 1px 20px;
 }
 
 .grid {
     display: grid;
-    height: 100px;
     grid-template-columns: 1fr 1fr;
 }
 
@@ -27,6 +45,20 @@ body {
 
 .success {
     color: green;
+}
+
+.green .right-align {
+    color: green;
+}
+
+.redcell {
+    color: red;
+    text-align: right;
+}
+
+.greencell {
+    color: green;
+    text-align: right;
 }
 
 .right-align {
