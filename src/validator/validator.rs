@@ -43,7 +43,9 @@ impl Validator {
                             rest_api_order.price <= viable_order.order.price) {
                             return Ok(VettingResult {
                                 pass: false,
-                                reject_reason: Some("Locked/crossed orders".to_string())
+                                reject_reason:
+                                Some(format!("This order would immediately trade against your existing order # {}",
+                                             viable_order.order.order_number).to_string())
                             })
                         }
                     }
