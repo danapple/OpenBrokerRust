@@ -1,10 +1,10 @@
 use crate::access_control::AccessControl;
+use crate::dtos;
 use crate::dtos::actor::Power;
 use crate::exchange_interface::exchange_client::ExchangeClient;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::Dao;
-use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
-use crate::dtos;
+use crate::rest_api::base_api::{log_anyhow_error_and_return_500, log_dao_error_and_return_500};
 use actix_session::Session;
 use actix_web::web::{Json, Path, ThinData};
 use actix_web::HttpResponse;
@@ -46,7 +46,7 @@ pub async fn create_exchange(dao: ThinData<Dao>,
     };
     match instrument_manager.setup_exchange(db_exchange).await {
         Ok(_) => {},
-        Err(setup_error) => return log_text_error_and_return_500(setup_error.to_string()),
+        Err(setup_error) => return log_anyhow_error_and_return_500(setup_error),
     };
     match txn.commit().await {
         Ok(x) => x,
@@ -109,7 +109,7 @@ pub async fn load_exchange_instruments(dao: ThinData<Dao>,
         };
         match instrument_manager.add_instrument(&db_instrument) {
             Ok(x) => x,
-            Err(err) => return log_text_error_and_return_500(err.to_string()),
+            Err(err) => return log_anyhow_error_and_return_500(err),
         };
     }
 

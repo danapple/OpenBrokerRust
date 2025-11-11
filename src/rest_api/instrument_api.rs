@@ -1,7 +1,7 @@
 use crate::access_control::AccessControl;
 use crate::constants::APPLICATION_JSON;
 use crate::instrument_manager::InstrumentManager;
-use crate::rest_api::base_api::log_text_error_and_return_500;
+use crate::rest_api::base_api::{log_anyhow_error_and_return_500, log_text_error_and_return_500};
 use actix_session::Session;
 use actix_web::web::ThinData;
 use actix_web::HttpResponse;
@@ -25,13 +25,13 @@ pub async fn get_instruments(access_control: ThinData<AccessControl>,
     }
     let instruments = match instrument_manager.get_instruments() {
         Ok(x) => x,
-        Err(get_error) => return log_text_error_and_return_500(get_error.to_string()),
+        Err(get_error) => return log_anyhow_error_and_return_500(get_error),
     };
     let mut rest_api_instruments = HashMap::new();
     for instrument in instruments.values() {
         let exchange = match instrument_manager.get_exchange_for_instrument(instrument) {
             Ok(exchange) => exchange,
-            Err(get_error) => return log_text_error_and_return_500(get_error.to_string()),
+            Err(get_error) => return log_anyhow_error_and_return_500(get_error),
         };
         rest_api_instruments.insert(instrument.instrument_key.clone(), instrument.to_rest_api_instrument(&exchange));
     }

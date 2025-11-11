@@ -24,7 +24,7 @@ mod auth;
 mod exchange_interface;
 
 use crate::access_control::AccessControl;
-use crate::auth::account_pages;
+use crate::auth::{account_pages, auth_api, auth_ui};
 use crate::persistence::dao::Dao;
 use crate::rest_api::instrument_api;
 use crate::validator::validator::Validator;
@@ -134,7 +134,9 @@ async fn main() -> io::Result<()> {
             .service(account_pages::welcome)
             .service(account_pages::register)
             .service(account_pages::login)
-            .service(account_pages::loginapi)
+            .service(auth_ui::register_ui)
+            .service(auth_ui::login_ui)
+            .service(auth_api::login_api)
             .service(account_pages::logout)
             .service(admin_api::offer_admin::create_offer)
             .service(admin_api::instrument_admin::create_exchange)

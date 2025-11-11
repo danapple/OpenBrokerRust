@@ -7,6 +7,7 @@ use anyhow::Error;
 use deadpool_postgres::Object;
 use log::{error, info, warn};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::string::ToString;
 use uuid::Uuid;
 
@@ -17,7 +18,7 @@ use crate::dtos::order::{is_order_status_viable, Order, OrderState, OrderStatus,
 use crate::entities::account::Position;
 use crate::instrument_manager::InstrumentManager;
 use crate::persistence::dao::{Dao, DaoError};
-use crate::rest_api::base_api::{log_dao_error_and_return_500, log_text_error_and_return_500};
+use crate::rest_api::base_api::{log_anyhow_error_and_return_500, log_dao_error_and_return_500};
 use crate::time::current_time_millis;
 use crate::validator::validator::Validator;
 use crate::vetting::all_pass_vetter::AllPassVetter;
@@ -36,7 +37,7 @@ pub async fn get_orders(dao: ThinData<Dao>,
 
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -63,7 +64,7 @@ pub async fn get_orders(dao: ThinData<Dao>,
         let rest_api_order_state = match order_state.1.to_rest_api_order_state(account_key.as_str(),
                                                              &instrument_manager) {
             Ok(rest_api_order_state) => rest_api_order_state,
-            Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
+            Err(convert_error) => return log_anyhow_error_and_return_500(convert_error),
         };
         api_order_states.insert(order_state.0, rest_api_order_state);
     }
@@ -82,7 +83,7 @@ pub async fn get_order(dao: ThinData<Dao>,
     info!("get_order called for ext_order_id {ext_order_id}");
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -110,7 +111,7 @@ pub async fn get_order(dao: ThinData<Dao>,
     };
     let rest_api_order_state = match order_state.to_rest_api_order_state(account_key.as_str(), &instrument_manager) {
         Ok(rest_api_order_state) => rest_api_order_state,
-        Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
+        Err(convert_error) => return log_anyhow_error_and_return_500(convert_error),
     };
     HttpResponse::Ok()
             .content_type(APPLICATION_JSON)
@@ -129,14 +130,14 @@ pub async fn preview_order(dao: ThinData<Dao>,
     let account_key = path.into_inner();
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
     }
     let check_result = match check_order(&dao, vetter, validator, &mut rest_api_order, &account_key).await {
         Ok(check_result) => check_result,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     
     HttpResponse::Ok().json(check_result)
@@ -158,7 +159,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -166,7 +167,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let check_result = match check_order(&dao, vetter, validator, &mut rest_api_order, &account_key).await {
         Ok(check_result) => check_result,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     if !check_result.pass {
         return HttpResponse::PreconditionFailed().json(check_result)
@@ -213,12 +214,12 @@ pub async fn submit_order(dao: ThinData<Dao>,
     let exchange_order_result = rest_api_order.to_exchange_order(&instrument_manager);
     let exchange_order = match exchange_order_result {
         Ok(exchange_order) => exchange_order,
-        Err(err) => return log_text_error_and_return_500(err.to_string())
+        Err(err) => return log_anyhow_error_and_return_500(err)
     };
     let entities_order_result = rest_api_order.to_entities_order(&account, exchange_order.client_order_id.clone(), &instrument_manager);
     let entities_order = match entities_order_result {
         Ok(entities_order) => entities_order,
-        Err(err) => return log_text_error_and_return_500(err.to_string())
+        Err(err) => return log_anyhow_error_and_return_500(err)
     };
     let mut order_state = entities::order::OrderState {
         update_time: current_time_millis(),
@@ -268,7 +269,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
     if order_state.order_status != OrderStatus::Pending {
         let rest_api_order_state = match order_state.to_rest_api_order_state(account_key.as_str(), &instrument_manager) {
             Ok(rest_api_order_state) => rest_api_order_state,
-            Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
+            Err(convert_error) => return log_anyhow_error_and_return_500(convert_error),
         };
         return HttpResponse::Ok()
             .content_type(APPLICATION_JSON)
@@ -309,7 +310,7 @@ pub async fn submit_order(dao: ThinData<Dao>,
 
     let rest_api_order_state = match order_state.to_rest_api_order_state(account_key.as_str(), &instrument_manager) {
         Ok(rest_api_order_state) => rest_api_order_state,
-        Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
+        Err(convert_error) => return log_anyhow_error_and_return_500(convert_error),
     };
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
@@ -377,7 +378,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     info!("cancel_order called for ext_order_id {ext_order_id}");
     let allowed: bool = match access_control.is_allowed_account_privilege(&session, &account_key, Privilege::Read) {
         Ok(allowed) => allowed,
-        Err(error) => return log_text_error_and_return_500(error.to_string())
+        Err(error) => return log_anyhow_error_and_return_500(error)
     };
     if !allowed {
         return HttpResponse::Forbidden().finish();
@@ -469,7 +470,7 @@ pub async fn cancel_order(dao: ThinData<Dao>,
     
     let rest_api_order_state = match send_order_state(&mut web_socket_server, &instrument_manager, &account_key, &order_state) {
         Ok(rest_api_order_state) => rest_api_order_state,
-        Err(convert_error) => return log_text_error_and_return_500(convert_error.to_string()),
+        Err(convert_error) => return log_anyhow_error_and_return_500(convert_error),
     };
 
     HttpResponse::Ok()

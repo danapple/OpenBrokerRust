@@ -65,7 +65,7 @@ fn login_technical_failure(failure: impl Display) -> HttpResponse {
 pub struct RegisterData {
     pub offer_code: String,
     pub email_address: String,
-    pub register_password: String,
+    pub password: String,
     pub actor_name: String,
 }
 
@@ -92,9 +92,9 @@ pub async fn register(dao: ThinData<Dao>,
     if !offer_code_valid {
         return registration_failure("You have entered an invalid offer code; please try again.");
     }
-    let password_hash = match hash_password(config.password_key.as_str(), data.register_password.as_str()) {
+    let password_hash = match hash_password(config.password_key.as_str(), data.password.as_str()) {
         Ok(password_hash) => password_hash,
-        Err(hash_error) => return log_text_error_and_return_500(format!("Could not hash password: {}", hash_error)),
+        Err(hash_error) => return log_text_error_and_return_500(format!("Could not hash password: {}", hash_error).as_str()),
     };
     let actor = match txn.save_actor(data.email_address.as_str(), data.actor_name.as_str(), data.offer_code.as_str(), password_hash.as_str()).await {
         Ok(actor) => actor,
@@ -120,49 +120,9 @@ pub async fn register(dao: ThinData<Dao>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApiLoginData {
-    pub api_key: String,
-}
-
-#[post("/loginapi")]
-pub async fn loginapi(
-    dao: ThinData<Dao>,
-    session: Session,
-    access_control: ThinData<AccessControl>,
-    data: web::Json<ApiLoginData>,
-) -> HttpResponse {
-    debug!("Logging in API {}", &data.api_key);
-    let mut db_connection = match dao.get_connection().await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    let txn = match dao.begin(&mut db_connection).await {
-        Ok(x) => x,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-
-    let actor_option = match txn.get_actor_by_api_key(&data.api_key).await {
-        Ok(actor_option) => actor_option,
-        Err(dao_error) => return log_dao_error_and_return_500(dao_error),
-    };
-    let actor = match actor_option {
-        Some(actor) => actor,
-        None => return HttpResponse::Unauthorized().finish()
-    };
-    match access_control.set_current_actor(&txn, &session, &actor).await {
-        Ok(_) => {}
-        Err(set_error) => {
-            session.clear();
-            return log_text_error_and_return_500(format!("Failed to setup API actor {}: {}", &data.api_key, set_error));
-        }
-    }
-    HttpResponse::Ok().json("{}")
-}
-
-#[derive(Debug, Deserialize)]
 pub struct LoginData {
-    pub email: String,
-    pub login_password: String,
+    pub email_address: String,
+    pub password: String,
 }
 
 #[post("/login")]
@@ -173,7 +133,7 @@ pub async fn login(
     config: ThinData<BrokerConfig>,
     data: web::Form<LoginData>
 ) -> HttpResponse {
-    debug!("Logging in actor {}", data.email);
+    debug!("Logging in actor {}", data.email_address);
     let mut db_connection = match dao.get_connection().await {
         Ok(x) => x,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
@@ -182,7 +142,7 @@ pub async fn login(
         Ok(x) => x,
         Err(dao_error) => return login_technical_failure(dao_error)
     };
-    let actor_password_hash_option = match txn.get_actor_password_hash(data.email.as_str()).await {
+    let actor_password_hash_option = match txn.get_actor_password_hash(data.email_address.as_str()).await {
         Ok(actor_password_hash_option) => actor_password_hash_option,
         Err(dao_error) => return login_technical_failure(dao_error)
     };
@@ -191,7 +151,7 @@ pub async fn login(
         None => return login_credential_failure()
     };
 
-    let password_verified = match verify_password(config.password_key.as_str(), actor_password_hash.as_str(), data.login_password.as_str()) {
+    let password_verified = match verify_password(config.password_key.as_str(), actor_password_hash.as_str(), data.password.as_str()) {
         Ok(password_verified) => password_verified,
         Err(verification_error) => return login_technical_failure(verification_error.to_string())
 
@@ -200,7 +160,7 @@ pub async fn login(
         true => {}
         false => return login_credential_failure()
     };
-    let actor_option = match txn.get_actor(data.email.as_str()).await {
+    let actor_option = match txn.get_actor(data.email_address.as_str()).await {
         Ok(actor_option) => actor_option,
         Err(dao_error) => return login_technical_failure(dao_error)
     };
@@ -241,7 +201,7 @@ fn is_json_request(req: &HttpRequest) -> bool {
         )
 }
 
-fn hash_password(key: &str, password: &str) -> Result<String, Error> {
+pub(crate) fn hash_password(key: &str, password: &str) -> Result<String, Error> {
     Hasher::default()
         .with_password(password)
         .with_secret_key(key)
