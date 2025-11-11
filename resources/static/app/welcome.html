@@ -115,7 +115,6 @@
             document.getElementById("registration_success_message").innerHTML = "";
             document.getElementById("registration_failure_message").innerHTML = "";
             document.getElementById("login_failure_message").innerHTML = "";
-
         }
         function registerCallback(status, _) {
             // console.log("registerCallback, status = " + status);
@@ -155,7 +154,7 @@
 
         function loginCallback(status, _) {
             document.getElementById("login_failure_message").innerHTML = "";
-            console.log("loginCallback, status = " + status);
+            // console.log("loginCallback, status = " + status);
             if (status === 200) {
                 // console.log("redirecting to trading experience");
                 window.location.href="/app";
@@ -172,11 +171,15 @@
 
         function doLogin() {
             clearMessages();
-            console.log("doLogin");
+            // console.log("doLogin");
             let emailAddress = document.getElementById("login_email_address").value;
             let password = document.getElementById("login_password").value;
             login(emailAddress, password, loginCallback);
         }
+
+        attachPasswordToggle(document.getElementById("login_password"), document.getElementById("login-password-toggle"));
+        attachPasswordToggle(document.getElementById("register_password"), document.getElementById("register-password-toggle"));
+
     </script>
 
     </div>

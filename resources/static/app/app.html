@@ -34,9 +34,13 @@
     <div>
       OpenBroker Trading Experience
     </div>
-    <div id="logout-content" class="container">
-      <a href="/logmeout">Logout</a>
+    <div>
+    <div id="logout_failure_message" class="warning">
     </div>
+    <div id="logout-content" class="container">
+      <input type="button" onclick="doLogout()" value="Logout" class="logout" />
+    </div>
+      </div>
   </div>
 
   <div style="height:10px"></div>
@@ -163,7 +167,27 @@
   </div>
 
 </div>
+</div>
 </body>
 <script type="module" src="app/js/app.js"></script>
+<script src="app/js/login.js"></script>
+<script>
 
+  function logoutCallback(status, _) {
+    console.log("logoutCallback, status = " + status);
+    if (status === 200) {
+      console.log("redirecting to welcome page");
+      window.location.href="/";
+    }
+    else {
+      document.getElementById("logout_failure_message").innerHTML =
+              "Your logout failed; please try again.";
+    }
+  }
+
+  function doLogout() {
+    console.log("doLogout");
+    logout(logoutCallback);
+  }
+</script>
 </html>

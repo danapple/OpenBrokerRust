@@ -21,12 +21,18 @@ function login(emailAddress, password, callback) {
     xhttp.send(body);
 }
 
+function logout(callback) {
+    let xhttp = makeXhttp("POST", "/logout", callback);
+    let body = JSON.stringify({});
+    xhttp.send(body);
+}
+
 function makeXhttp(method, path, callback) {
     let xhttp = new XMLHttpRequest();
     if (callback !== undefined && callback !== null) {
         xhttp.onreadystatechange = function () {
             if (this.readyState == 4) {
-                callback(this.status, JSON.parse(this.responseText));
+                callback(this.status);
             }
         };
     }
@@ -48,7 +54,3 @@ function attachPasswordToggle(fieldElement, toggleElement) {
         }
     });
 }
-
-attachPasswordToggle(document.getElementById("login_password"), document.getElementById("login-password-toggle"));
-attachPasswordToggle(document.getElementById("register_password"), document.getElementById("register-password-toggle"));
-

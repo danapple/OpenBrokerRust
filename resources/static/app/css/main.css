@@ -12,8 +12,10 @@ body {
     border-radius: 5px;
 }
 
-a {
+
+.logout{
     display: inline-block;
+    font-size: 18px;
     background: #1010a0;
     color: white;
     padding: 5px 10px;
