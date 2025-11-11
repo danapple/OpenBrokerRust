@@ -21,6 +21,14 @@ impl AccessControl {
         }
     }
 
+    pub(crate) fn clear(&self,
+                        session: &Session) {
+        session.remove(SESSION_ACTOR_KEY);
+        session.remove(SESSION_ACCOUNT_MAP_KEY);
+        session.remove(SESSION_POWERS);
+        session.clear();
+    }
+
     pub(crate) async fn set_current_actor(&self, 
                                           txn: &DaoTransaction<'_>, 
                                           session: &Session, 

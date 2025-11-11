@@ -24,7 +24,7 @@ mod auth;
 mod exchange_interface;
 
 use crate::access_control::AccessControl;
-use crate::auth::{account_pages, auth_api, auth_ui};
+use crate::auth::{auth_api, auth_ui, logout};
 use crate::persistence::dao::Dao;
 use crate::rest_api::instrument_api;
 use crate::validator::validator::Validator;
@@ -131,21 +131,20 @@ async fn main() -> io::Result<()> {
             .service(balance_position_api::get_positions)
             .service(balance_position_api::get_balance)
             .service(account_api::get_accounts)
-            .service(account_pages::welcome)
-            .service(account_pages::register)
-            .service(account_pages::login)
             .service(auth_ui::register_ui)
             .service(auth_ui::login_ui)
             .service(auth_api::login_api)
-            .service(account_pages::logout)
+            .service(logout::logout)
             .service(admin_api::offer_admin::create_offer)
             .service(admin_api::instrument_admin::create_exchange)
             .service(admin_api::instrument_admin::load_exchange_instruments)
             .service(instrument_api::get_instruments)
             .service(ws_handler::ws_setup)
             .service(fs::Files::new("/app", "./resources/static/app")
-                         .show_files_listing()
                          .index_file("app.html")
+                         .use_last_modified(true),)
+            .service(fs::Files::new("/", "./resources/static/app")
+                         .index_file("welcome.html")
                          .use_last_modified(true),)
          })
         .bind(config.server_addr)?

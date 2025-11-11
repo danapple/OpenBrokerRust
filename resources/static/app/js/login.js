@@ -1,6 +1,40 @@
 // const passwordField = document.getElementById("password");
 // const togglePassword = document.getElementById(".password-toggle-icon i");
 
+function register(offerCode, actorName, emailAddress, password, callback) {
+    let xhttp = makeXhttp("POST", "/register_ui", callback);
+    let body = JSON.stringify({
+        offer_code: offerCode,
+        actor_name: actorName,
+        email_address: emailAddress,
+        password: password,
+    });
+    xhttp.send(body);
+}
+
+function login(emailAddress, password, callback) {
+    let xhttp = makeXhttp("POST", "/login_ui", callback);
+    let body = JSON.stringify({
+        email_address: emailAddress,
+        password: password,
+    });
+    xhttp.send(body);
+}
+
+function makeXhttp(method, path, callback) {
+    let xhttp = new XMLHttpRequest();
+    if (callback !== undefined && callback !== null) {
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4) {
+                callback(this.status, JSON.parse(this.responseText));
+            }
+        };
+    }
+    xhttp.open(method, path, true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    return xhttp;
+}
+
 function attachPasswordToggle(fieldElement, toggleElement) {
     toggleElement.addEventListener("click", function () {
         if (fieldElement.type === "password") {

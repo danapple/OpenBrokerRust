@@ -21,7 +21,7 @@ export class OpenBroker {
     }
 
     submitOrder(accountKey, instrumentKey, quantity, price) {
-        let xhttp = this.#makeXhttp("POST", accountKey, undefined, this.submitOrderCallback);
+        let xhttp = this.#makeAccountXhttp("POST", accountKey, undefined, this.submitOrderCallback);
         let body = JSON.stringify({
             price: Number(price),
             quantity: Number(quantity),
@@ -36,7 +36,7 @@ export class OpenBroker {
     }
 
     cancelOrder(accountKey, extOrderId) {
-        let xhttp = this.#makeXhttp("DELETE", accountKey, extOrderId, this.cancelOrderCallback);
+        let xhttp = this.#makeAccountXhttp("DELETE", accountKey, extOrderId, this.cancelOrderCallback);
         xhttp.send();
     }
 
@@ -85,7 +85,7 @@ export class OpenBroker {
         return path;
     }
 
-    #makeXhttp(method, accountKey, extra, callback) {
+    #makeAccountXhttp(method, accountKey, extra, callback) {
         let xhttp = new XMLHttpRequest();
         if (callback !== undefined && callback !== null) {
             xhttp.onreadystatechange = function () {

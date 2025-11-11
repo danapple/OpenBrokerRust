@@ -1,12 +1,28 @@
 use crate::access_control::AccessControl;
-use crate::auth::account_pages::{verify_password, LoginData, RegisterData};
 use crate::config::BrokerConfig;
 use crate::persistence::dao::Dao;
 use crate::rest_api::base_api::{log_anyhow_error_and_return_500, log_dao_error_and_return_500, log_text_error_and_return_500};
 use actix_session::Session;
 use actix_web::web::ThinData;
 use actix_web::{web, HttpResponse};
+use anyhow::Error;
+use argonautica::{Hasher, Verifier};
 use log::{debug, info, warn};
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterData {
+    pub offer_code: String,
+    pub email_address: String,
+    pub password: String,
+    pub actor_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoginData {
+    pub email_address: String,
+    pub password: String,
+}
 
 #[post("/login_ui")]
 pub async fn login_ui(
@@ -31,7 +47,7 @@ pub async fn login_ui(
     };
     let actor_password_hash = match actor_password_hash_option {
         Some(actor_password_hash) => actor_password_hash,
-        None => return HttpResponse::Unauthorized().finish()
+        None => return HttpResponse::Unauthorized().json("{}")
     };
 
     let password_verified = match verify_password(config.password_key.as_str(), actor_password_hash.as_str(), data.password.as_str()) {
@@ -41,7 +57,7 @@ pub async fn login_ui(
     };
     match password_verified {
         true => {}
-        false => return HttpResponse::Unauthorized().finish()
+        false => return HttpResponse::Unauthorized().json("{}")
     };
     let actor_option = match txn.get_actor(data.email_address.as_str()).await {
         Ok(actor_option) => actor_option,
@@ -59,7 +75,7 @@ pub async fn login_ui(
             return log_anyhow_error_and_return_500(set_error)
         }
     }
-    HttpResponse::Ok().finish()
+    HttpResponse::Ok().json("{}")
 }
 
 #[post("/register_ui")]
@@ -82,9 +98,9 @@ pub async fn register_ui(dao: ThinData<Dao>,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
     if !offer_code_valid {
-        return HttpResponse::NotFound().finish();
+        return HttpResponse::NotFound().json("{}")
     }
-    let password_hash = match crate::auth::account_pages::hash_password(config.password_key.as_str(), data.password.as_str()) {
+    let password_hash = match hash_password(config.password_key.as_str(), data.password.as_str()) {
         Ok(password_hash) => password_hash,
         Err(hash_error) => return log_text_error_and_return_500(format!("Could not hash password: {}", hash_error).as_str()),
     };
@@ -92,7 +108,7 @@ pub async fn register_ui(dao: ThinData<Dao>,
         Ok(actor) => actor,
         Err(dao_error) => {
             warn!("User could not be registered: {}", dao_error);
-            return HttpResponse::NotAcceptable().finish();
+            return HttpResponse::NotAcceptable().json("{}")
         },
     };
     match txn.create_account_for_actor(&actor).await {
@@ -105,5 +121,24 @@ pub async fn register_ui(dao: ThinData<Dao>,
         Err(dao_error) => return log_dao_error_and_return_500(dao_error),
     };
 
-    HttpResponse::Created().finish()
+    HttpResponse::Created().json("{}")
+}
+
+
+pub(crate) fn hash_password(key: &str, password: &str) -> Result<String, Error> {
+    Hasher::default()
+        .with_password(password)
+        .with_secret_key(key)
+        .hash()
+        .map_err(|_| anyhow::anyhow!("Failed to hash password"))
+}
+
+
+pub fn verify_password(key: &str, hash: &str, password: &str) -> Result<bool, Error> {
+    Verifier::default()
+        .with_hash(hash)
+        .with_password(password)
+        .with_secret_key(key)
+        .verify()
+        .map_err(|_| anyhow::anyhow!("Could not verify password"))
 }

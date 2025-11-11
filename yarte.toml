@@ -1,6 +1,0 @@
-[main]
-dir = "resources/templates"
-
-[partials]
-layouts = "./layouts"
-includes = "./includes"
