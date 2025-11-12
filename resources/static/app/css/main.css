@@ -12,6 +12,9 @@ body {
     border-radius: 5px;
 }
 
+.dtfc-fixed-left, .dtfc-fixed-right {
+    background-color: #04042a !important; /* Or your desired color */
+}
 
 .logout{
     display: inline-block;

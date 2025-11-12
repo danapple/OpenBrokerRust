@@ -4,76 +4,94 @@ let openBroker = new OpenBroker();
 
 let positionsTable = new DataTable('#positions_table', {
     columns: [
-        {title: 'Account', data: 'account', name: 'account', align: 'right'},
-        {title: 'Instrument', data: 'instrument', name: 'instrument', align: 'right', orderData: [0, 1]},
-        {title: 'Quantity', data: 'quantity', name: 'quantity', align: 'right', orderData: [0, 2]},
+        {title: 'Account', data: 'account', name: 'account', className: 'dt-right'},
+        {title: 'Instrument', data: 'instrument', name: 'instrument', className: 'dt-right', orderData: [0, 1]},
+        {title: 'Quantity', data: 'quantity', name: 'quantity', className: 'dt-right', orderData: [0, 2]},
         {
             title: 'Cost Basis',
             data: 'cost_basis',
             name: 'cost_basis',
-            align: 'right',
+            className: 'dt-right',
             defaultContent: '-',
             orderData: [0, 3]
         },
-        {title: 'Cost', data: 'cost', name: 'cost', align: 'right', orderData: [0, 4]},
-        {title: 'NetLiq', data: 'net_liq', align: 'right', name: 'net_liq', defaultContent: '-', orderData: [0, 5]},
+        {title: 'Cost', data: 'cost', name: 'cost', className: 'dt-right', orderData: [0, 4]},
+        {title: 'NetLiq', data: 'net_liq', className: 'dt-right', name: 'net_liq', orderData: [0, 5]},
         {
             title: 'Open Gain',
             data: 'open_gain',
             name: 'open_gain',
-            align: 'right',
-            defaultContent: '-',
-            orderData: [0, 6]
+            className: 'dt-right',
+            orderData: [0, 6],
         },
         {
             title: 'Open Gain %',
             data: 'open_gain_percent',
             name: 'open_gain_percent',
-            align: 'right',
-            defaultContent: '-',
+            className: 'dt-right',
             orderData: [0, 7]
         },
-        {title: 'Closed Gain', data: 'closed_gain', name: 'closed_gain', align: 'right', orderData: [0, 8]},
-        {title: 'Actions', data: 'actions', name: 'actions', align: 'right', orderData: [0, 9]},
-        {title: 'RowId', data: 'row_id', name: 'row_id', align: 'right', visible: false},
+        {title: 'Closed Gain', data: 'closed_gain', name: 'closed_gain',
+            className: 'dt-right', orderData: [0, 8]},
+        {title: 'Actions', data: 'actions', name: 'actions', className: 'dt-right', orderData: [0, 9]},
+        {title: 'RowId', data: 'row_id', name: 'row_id', className: 'dt-right', visible: false},
     ],
     rowId: 'row_id',
-    rowGroup: {
-        dataSrc: 'account',
-    }
+    scrollY: '500px',
+    scrollCollapse: true,
+    paging: false,
+    fixedColumns: {
+        start: 2
+    },
+    scrollX: true,
+
+    // rowGroup: {
+    //     dataSrc: 'account',
+    // }
 });
 
 let ordersTable = new DataTable('#orders_table', {
     columns: [
-        {title: 'Account', data: 'account', name: 'account', align: 'right'},
-        {title: 'Order Number', data: 'order_number', name: 'order_number', align: 'right', orderData: [0, 1]},
-        {title: 'Instrument', data: 'instrument', name: 'instrument', align: 'right', orderData: [0, 2]},
-        {title: 'Status', data: 'status', name: 'status', align: 'right', orderData: [0, 3]},
-        {title: 'Side', data: 'side', name: 'side', align: 'right', orderData: [0, 4]},
-        {title: 'Quantity', data: 'quantity', name: 'quantity', align: 'right', orderData: [0, 5]},
-        {title: 'Price', data: 'price', name: 'price', align: 'right', orderData: [0, 6]},
-        {title: 'Actions', data: 'actions', name: 'actions', align: 'right', orderData: [0, 7]},
-        {title: 'RowId', data: 'row_id', name: 'row_id', align: 'right', visible: false},
+        {title: 'Account', data: 'account', name: 'account', className: 'dt-right'},
+        {title: 'Order Number', data: 'order_number', name: 'order_number', className: 'dt-right', orderData: [0, 1]},
+        {title: 'Instrument', data: 'instrument', name: 'instrument', className: 'dt-right', orderData: [0, 2]},
+        {title: 'Status', data: 'status', name: 'status', className: 'dt-right', orderData: [0, 3]},
+        {title: 'Side', data: 'side', name: 'side', className: 'dt-right', orderData: [0, 4]},
+        {title: 'Quantity', data: 'quantity', name: 'quantity', className: 'dt-right', orderData: [0, 5]},
+        {title: 'Price', data: 'price', name: 'price', className: 'dt-right', orderData: [0, 6]},
+        {title: 'Actions', data: 'actions', name: 'actions', className: 'dt-right', orderData: [0, 7]},
+        {title: 'RowId', data: 'row_id', name: 'row_id', className: 'dt-right', visible: false},
     ],
     rowId: 'row_id',
-    rowGroup: {
-        dataSrc: 'account',
+    scrollY: '500px',
+    scrollCollapse: true,
+    paging: false,
+    fixedColumns: {
+        start: 2
     },
+    scrollX: true,
+    // rowGroup: {
+    //     dataSrc: 'account',
+    // },
     order: [[1, 'desc']]
 });
 
 let marketsTable = new DataTable('#markets_table', {
     columns: [
-        {title: 'Instrument', data: 'instrument', name: 'instrument', align: 'right'},
-        {title: 'Bid', data: 'bid', name: 'bid', align: 'right'},
-        {title: 'Mark', data: 'mark', name: 'mark', align: 'right'},
-        {title: 'Ask', data: 'ask', name: 'ask', align: 'right'},
-        {title: 'Last', data: 'last', name: 'last', align: 'right'},
+        {title: 'Instrument', data: 'instrument', name: 'instrument', className: 'dt-right'},
+        {title: 'Bid', data: 'bid', name: 'bid', className: 'dt-right'},
+        {title: 'Mark', data: 'mark', name: 'mark', className: 'dt-right'},
+        {title: 'Ask', data: 'ask', name: 'ask', className: 'dt-right'},
+        {title: 'Last', data: 'last', name: 'last', className: 'dt-right'},
     ],
     rowId: 'row_id',
-    rowGroup: {
-        dataSrc: 'account',
+    scrollY: '200px',
+    scrollCollapse: true,
+    paging: false,
+    fixedColumns: {
+        start: 1
     },
+    scrollX: true,
     order: [[1, 'desc']]
 });
 
