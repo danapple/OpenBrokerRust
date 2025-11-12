@@ -19,7 +19,10 @@
   <meta name="theme-color" content="#fafafa">
   <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
-  <script src="app/js/sorttable.js"></script>
+  <link href="https://cdn.datatables.net/2.3.4/css/dataTables.dataTables.css" rel="stylesheet">
+  <link href="app/js/datatables.min.css" rel="stylesheet">
+  <script src="app/js/datatables.min.js"></script>
+
   <script type="module" src="app/js/openbroker.js"></script>
 </head>
 
@@ -60,7 +63,7 @@
             </select>
             <label for="order_side">Side</label>
             <select name="order_side" id="order_side">
-              <option value="Buy">Buy</option>
+              <option value="buy">Buy</option>
               <option value="sell">Sell</option>
             </select>
             <label for="order_quantity">Quantity</label>
@@ -120,23 +123,9 @@
     </div>
     <div class="row" style="resize:vertical; overflow-y:scroll; overflow-x:auto; width:1100px">
       <div class="col-md-12 " >
-        <table id="positions_table" class="sortable">
-          <thead>
-          <tr>
-            <th class='right-align'>Account</th>
-            <th class='right-align'>Instrument</th>
-            <th class='right-align'>Quantity</th>
-            <th class='right-align'>Cost Basis</th>
-            <th class='right-align'>Cost</th>
-            <th class='right-align'>NetLiq</th>
-            <th class='right-align'>Open Gain</th>
-            <th class='right-align'>Open Gain %</th>
-            <th class='right-align'>Closed Gain</th>
-            <th class='right-align'>Action</th>
-          </tr>
-          </thead>
-          <tbody id="positions_body">
-          </tbody>
+        <table id="positions_table" >
+          <thead></thead>
+          <tbody></tbody>
         </table>
       </div>
     </div>
@@ -144,23 +133,12 @@
     <div>
       Orders
     </div>
-    <div class="row">
-      <div class="col-md-12" style="resize:vertical; overflow-y:scroll; overflow-x:auto; height:400px; width:1100px">
-        <table id="orders_table" class="sortable">
+    <div class="row" style="resize:vertical; overflow-y:scroll; overflow-x:auto; width:1100px">
+      <div class="col-md-12">
+        <table id="orders_table" >
           <thead>
-          <tr>
-            <th class='right-align'>Account</th>
-            <th class="sorttable_numeric">Order Number</th>
-            <th class='right-align'>Instrument</th>
-            <th class='right-align'>Status</th>
-            <th class='right-align'>Side</th>
-            <th class='right-align'>Quantity</th>
-            <th class='right-align'>Price</th>
-            <th>Action</th>
-          </tr>
           </thead>
-          <tbody id="orders_body">
-          </tbody>
+          <tbody></tbody>
         </table>
       </div>
     </div>

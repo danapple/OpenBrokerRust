@@ -49,20 +49,24 @@ export class OpenBroker {
         return positions[instrumentKey];
     }
 
-    getInstrumentSymbol(instrument_key) {
-        var instrument = this.#instruments[instrument_key];
+    getInstrumentSymbol(instrumentKey) {
+        var instrument = this.#instruments[instrumentKey];
         if (!instrument) {
             return "Id: " + instrument_key;
         }
         return instrument.symbol;
     }
 
-    getInstrumentDescription(instrument_key) {
-        var instrument = this.#instruments[instrument_key];
+    getInstrumentDescription(instrumentKey) {
+        var instrument = this.#instruments[instrumentKey];
         if (!instrument) {
             return "Id: " + instrument_key;
         }
         return instrument.description;
+    }
+
+    getMarket(instrumentKey) {
+        return this.#computeMarket(instrumentKey);
     }
 
     /* Private below this line */
@@ -305,6 +309,8 @@ export class OpenBroker {
     #updatePositionWithMarket(position, market) {
         // console.log("updatePositionWithMarket accountKey " + position.account_key + ", instrumentKey " + position.instrument_key +
         //     " and market " + JSON.stringify(market));
+        //
+        // console.log("position = " + JSON.stringify(position));
         if (position === undefined || position === null) {
             console.log("No position for accountKey " + account_key + " and instrumentKey " + account_key);
             return;
