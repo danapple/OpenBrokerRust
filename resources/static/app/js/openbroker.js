@@ -65,6 +65,11 @@ export class OpenBroker {
         return instrument.description;
     }
 
+    getInstrument(instrumentKey) {
+        var instrument = this.#instruments[instrumentKey];
+        return instrument;
+    }
+
     getMarket(instrumentKey) {
         return this.#computeMarket(instrumentKey);
     }

@@ -7,10 +7,24 @@ let positionsTable = new DataTable('#positions_table', {
         {title: 'Account', data: 'account', name: 'account', align: 'right'},
         {title: 'Instrument', data: 'instrument', name: 'instrument', align: 'right', orderData: [0, 1]},
         {title: 'Quantity', data: 'quantity', name: 'quantity', align: 'right', orderData: [0, 2]},
-        {title: 'Cost Basis', data: 'cost_basis', name: 'cost_basis', align: 'right', defaultContent: '-', orderData: [0, 3]},
+        {
+            title: 'Cost Basis',
+            data: 'cost_basis',
+            name: 'cost_basis',
+            align: 'right',
+            defaultContent: '-',
+            orderData: [0, 3]
+        },
         {title: 'Cost', data: 'cost', name: 'cost', align: 'right', orderData: [0, 4]},
         {title: 'NetLiq', data: 'net_liq', align: 'right', name: 'net_liq', defaultContent: '-', orderData: [0, 5]},
-        {title: 'Open Gain', data: 'open_gain', name: 'open_gain', align: 'right', defaultContent: '-', orderData: [0, 6]},
+        {
+            title: 'Open Gain',
+            data: 'open_gain',
+            name: 'open_gain',
+            align: 'right',
+            defaultContent: '-',
+            orderData: [0, 6]
+        },
         {
             title: 'Open Gain %',
             data: 'open_gain_percent',
@@ -45,7 +59,23 @@ let ordersTable = new DataTable('#orders_table', {
     rowGroup: {
         dataSrc: 'account',
     },
-    order: [[1, 'desc']]});
+    order: [[1, 'desc']]
+});
+
+let marketsTable = new DataTable('#markets_table', {
+    columns: [
+        {title: 'Instrument', data: 'instrument', name: 'instrument', align: 'right'},
+        {title: 'Bid', data: 'bid', name: 'bid', align: 'right'},
+        {title: 'Mark', data: 'mark', name: 'mark', align: 'right'},
+        {title: 'Ask', data: 'ask', name: 'ask', align: 'right'},
+        {title: 'Last', data: 'last', name: 'last', align: 'right'},
+    ],
+    rowId: 'row_id',
+    rowGroup: {
+        dataSrc: 'account',
+    },
+    order: [[1, 'desc']]
+});
 
 function instrumentCallback(instrument) {
     // console.log("instrumentCallback: " + JSON.stringify(instrument));
@@ -73,12 +103,21 @@ function accountCallback(account) {
     order_account_select.appendChild(opt);
 }
 
+function getAccountSpan(accountKey) {
+    let account = openBroker.getAccount(accountKey);
+    return "<span title='" + account.account_name + "'>" + account.account_number + "</span>";
+}
+
+function getInstrumentSpan(instrumentKey) {
+    let instrument = openBroker.getInstrument(instrumentKey);
+    return "<span title='" + instrument.description + "'>" + instrument.symbol + "</span>";
+}
+
 function positionCallback(position) {
     // console.log("positionCallback: " + JSON.stringify(position));
-    let description = openBroker.getInstrumentDescription(position.instrument_key);
-    let symbol = openBroker.getInstrumentSymbol(position.instrument_key);
-    let account = openBroker.getAccount(position.account_key);
-    let accountDescription = "<span title='" + account.account_name + "'>" + account.account_number + "</span>"
+
+    let accountDescription = getAccountSpan(position.account_key);
+    let instrumentDescription = getInstrumentSpan(position.instrument_key);
 
     // console.log("position = " + JSON.stringify(position));
     let id = computePositionRowId(position.account_key, position.instrument_key);
@@ -93,7 +132,7 @@ function positionCallback(position) {
     if (element === undefined || element === null) {
         let positionNode = positionsTable.row.add({
             account: accountDescription,
-            instrument: symbol,
+            instrument: instrumentDescription,
             quantity: position.quantity,
             cost_basis: render(position.cost_basis),
             cost: render(position.cost),
@@ -154,8 +193,7 @@ function orderStateCallback(orderState) {
         orderState.order_status === 'Open') {
         actions += "<button id='" + cancelButtonId + "' className='btn btn-default' type='submit'>Cancel</button>";
     }
-    let account = openBroker.getAccount(orderState.order.account_key);
-    let accountDescription = "<span title='" + account.account_name + "'>" + account.account_number + "</span>"
+    let accountDescription = getAccountSpan(orderState.order.account_key);
     let orderStatus = "<td class='right-align'";
     if (orderState.order_status === "Rejected" && orderState.reject_reason !== null) {
         orderStatus += " title='" + orderState.reject_reason + "'";
@@ -164,12 +202,14 @@ function orderStateCallback(orderState) {
 
     let orderSide = orderState.order.quantity > 0 ? "Buy" : "Sell";
 
+    let instrumentSpan =  "<span title='" + description + "'>" + symbol + "</span>";
+
     let element = document.getElementById(id);
     if (element === undefined || element === null) {
         let orderNode = ordersTable.row.add({
             account: accountDescription,
             order_number: orderState.order.order_number,
-            instrument: symbol,
+            instrument: instrumentSpan,
             status: orderStatus,
             side: orderSide,
             quantity: Math.abs(orderState.order.quantity),
@@ -197,10 +237,9 @@ function balanceCallback(balance, totals) {
     // console.log("balanceCallback: " + JSON.stringify(balance)
     //     + ", totals: " + JSON.stringify(totals));
     let needsDraw = false;
-    let account = openBroker.getAccount(balance.account_key);
     let posbalanceid = "accbal:" + balance.account_key;
     let postotalsid = "acctot:" + balance.account_key;
-    let accountDescription = "<span title='" + account.account_name + "'>" + account.account_number + "</span>"
+    let accountDescription = getAccountSpan(balance.account_key);
 
     let balanceElement = document.getElementById(posbalanceid);
     if (balanceElement === undefined || balanceElement === null) {
@@ -222,7 +261,7 @@ function balanceCallback(balance, totals) {
         updateCell(positionsTable, posbalanceid, 'net_liq', render(balance.cash));
         needsDraw = true;
     }
-    console.log("totals.open_gain_percent = " + totals.open_gain_percent);
+    // console.log("totals.open_gain_percent = " + totals.open_gain_percent);
 
     // TODO maybe don't show sub-totals if there is only one account shown.
     let totalsElement = document.getElementById(postotalsid);
@@ -285,13 +324,6 @@ function totalsCallback(totals) {
     }
 }
 
-function deleteRow(rowid) {
-    let row = document.getElementById(rowid);
-    if (row !== null) {
-        row.parentNode.removeChild(row);
-    }
-}
-
 function closePosition(accountKey, instrumentKey) {
     let market = openBroker.getMarket(instrumentKey)
     let position = openBroker.getPosition(accountKey, instrumentKey);
@@ -318,46 +350,43 @@ function marketCallback(market) {
     //console.log("market: " + JSON.stringify(market));
 
     let marketDataId = "marketData:" + market.instrument_key;
-    deleteRow(marketDataId);
-    let description = openBroker.getInstrumentDescription(market.instrument_key);
-    let symbol = openBroker.getInstrumentSymbol(market.instrument_key);
+    let description = getInstrumentSpan(market.instrument_key);
 
-    let text = "<tr id=" + marketDataId + ">";
-    text += "<td class='right-align' title='" + description + "'>" + symbol + "</td>"
-
-    text += "<td>";
+    let bid = "-";
     if (market.bid !== undefined && market.bid_size !== undefined) {
-        text += market.bid_size + "@" + render(market.bid);
-    } else {
-        text += "-";
+        bid = market.bid_size + "@" + render(market.bid);
     }
-    text += "</td>";
-
-    text += "<td>";
+    let mark = "-";
     if (market.mark !== undefined) {
-        text += render(market.mark);
-    } else {
-        text += "-";
+        mark = render(market.mark);
     }
-    text += "</td>";
-
-    text += "<td>";
+    let ask = "-";
     if (market.ask !== undefined && market.ask_size !== undefined) {
-        text += market.ask_size + "@" + render(market.ask);
-    } else {
-        text += "-";
+        ask = market.ask_size + "@" + render(market.ask);
     }
-    text += "</td>";
-
-    text += "<td>";
-    if (market.last != undefined) {
-        text += render(market.last);
-    } else {
-        text += "-";
+    let last = "-";
+    if (market.last !== undefined) {
+        last = market.last + "@" + render(market.last);
     }
-    text += "</td>";
 
-    $("#markets_table").append(text);
+    let marketDataElement = document.getElementById(marketDataId);
+    if (marketDataElement === undefined || marketDataElement === null) {
+        let node = marketsTable.row.add({
+            instrument: description,
+            bid: bid,
+            mark: mark,
+            ask: ask,
+            last: last,
+            row_id: marketDataId
+        }).draw().node();
+        node.setAttribute("id", marketDataId);
+    } else {
+        updateCell(marketsTable, marketDataId, 'bid', bid);
+        updateCell(marketsTable, marketDataId, 'mark', mark);
+        updateCell(marketsTable, marketDataId, 'ask', ask);
+        updateCell(marketsTable, marketDataId, 'last', last);
+        marketsTable.draw()
+    }
 }
 
 function submitOrder() {
@@ -415,7 +444,7 @@ function colorRender(num, suffix) {
     if (suffix !== undefined) {
         res += suffix;
     }
-    console.log("cls for " + res + " = " + cls);
+    // console.log("cls for " + res + " = " + cls);
     return "<span class='" + cls + "'>" + res + "</span>";
 }
 
