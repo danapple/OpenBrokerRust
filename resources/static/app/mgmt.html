@@ -1,0 +1,87 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+  <title>OpenBroker Admin Panel</title>
+  <meta charset="utf-8">
+<!--  <meta name="viewport" content="width=device-width, initial-scale=1">-->
+  <link rel="stylesheet" href="app/css/admin.css">
+  <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+  <link href="https://cdn.datatables.net/2.3.4/css/dataTables.dataTables.css" rel="stylesheet">
+  <link href="app/js/datatables.min.css" rel="stylesheet">
+  <script src="app/js/datatables.min.js"></script>
+
+  <script type="module" src="app/js/openbroker.js"></script>
+</head>
+
+<body>
+
+<noscript><h2 style="color: #ff0000">Seems your browser doesn't support Javascript! Websocket relies on Javascript being
+  enabled. Please enable Javascript and reload this page!</h2></noscript>
+
+<div id="main-content" class="admin-style">
+
+  <div class="grid">
+    <div>
+      OpenBroker Admin Panel
+    </div>
+    <div>
+    <div id="logout_failure_message" class="warning">
+    </div>
+    <div id="logout-content" class="container">
+      <input type="button" onclick="doLogout()" value="Logout" class="logout" />
+    </div>
+      </div>
+  </div>
+
+  <div style="height:10px"></div>
+  <div>
+    <div>
+      <div>
+      Create an offer
+      </div>
+      <div id="create_offer_success_message" class="success"></div>
+      <div id="create_offer_failure_message" class="warning"></div>
+
+      <div id="submit-data" class="container">
+        <div class="col-md-12">
+          <form>
+            <label for="offer_code">Offer code</label>
+            <input id="offer_code" size="3" required min="1"/>
+            <label for="description">Description</label>
+            <input id="description" size="20" required min="5"/>
+            <label for="expiration">Expiration</label>
+            <input type="datetime-local" name="expiration" min="getMinExpirationDateTime()" id="expiration"/>
+            <input id="create_offer" type="button" value="Create"/>
+          </form>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+</body>
+<script type="module" src="app/js/mgmt.js"></script>
+<script src="app/js/login.js"></script>
+<script>
+
+  function logoutCallback(status, _) {
+    console.log("logoutCallback, status = " + status);
+    if (status === 200) {
+      console.log("redirecting to login page");
+      window.location.href="/admin.html";
+    }
+    else {
+      document.getElementById("logout_failure_message").innerHTML =
+              "Your logout failed; please try again.";
+    }
+  }
+
+  function doLogout() {
+    console.log("doLogout");
+    logout(logoutCallback);
+  }
+</script>
+</html>

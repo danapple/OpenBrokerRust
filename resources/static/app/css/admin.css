@@ -2,10 +2,10 @@
 @import url("https://fonts.googleapis.com/css?family=Poppins:400,500&display=swap");
 
 body {
-    background-color: #04042a;
+    background-color: #222222;
 }
 
-.main-style {
+.admin-style {
     font-size: 18px;
     margin: 0 auto 20px;
     color: white;

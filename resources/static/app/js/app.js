@@ -2,6 +2,7 @@ import {OpenBroker} from "./openbroker.js";
 
 let openBroker = new OpenBroker();
 
+
 let positionsTable = new DataTable('#positions_table', {
     columns: [
         {title: 'Account', data: 'account', name: 'account', className: 'dt-right'},

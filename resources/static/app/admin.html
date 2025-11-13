@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="app/css/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta charset="utf-8"/>
+    <title>Welcome to OpenBroker</title>
+</head>
+<body>
+<div>
+
+    <div class="admin-style">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<div class="entry">
+  <h1>OpenBroker.</h1>
+    <div class="grid">
+        <div id="login_failure_message" class="warning">
+        </div>
+        <div id="registration_failure_message" class="warning">
+        </div>
+        <div id="login">
+                <div class="grid">
+                    <div class="right-align">
+                        Email address:
+                    </div>
+                    <div>
+                        <input
+                            type="email"
+                            name="email_address"
+                            id="login_email_address"
+                            minlength="4"
+                            required/>
+                    </div>
+                    <div class="right-align">Password:</div>
+                    <div><input aria-label="Password" name="password" id="login_password" type="password"
+                                     required autocomplete="current-password" minlength="1"
+                                     maxlength="30" />
+                        <span class="password-toggle-icon"><i id='login-password-toggle' class="fas fa-eye"></i></span>
+                    </div>
+                    <div> </div>
+
+                    <div>
+                        <input type="button" onclick="doLogin()" value="Login" />
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+    <script src="app/js/login.js"></script>
+    <script>
+        function clearMessages() {
+            document.getElementById("login_failure_message").innerHTML = "";
+        }
+
+        function loginCallback(status, _) {
+            document.getElementById("login_failure_message").innerHTML = "";
+            // console.log("loginCallback, status = " + status);
+            if (status === 200) {
+                // console.log("redirecting to trading experience");
+                window.location.href="/mgmt.html";
+            }
+            else if (status === 401) {
+                document.getElementById("login_failure_message").innerHTML =
+                        "Your login credentials were invalid; please try again.";
+            }
+            else {
+                document.getElementById("login_failure_message").innerHTML =
+                        "Your login failed due to technical reasons; please try again.";
+            }
+        }
+
+        function doLogin() {
+            clearMessages();
+            // console.log("doLogin");
+            let emailAddress = document.getElementById("login_email_address").value;
+            let password = document.getElementById("login_password").value;
+            login(emailAddress, password, loginCallback);
+        }
+
+        attachPasswordToggle(document.getElementById("login_password"), document.getElementById("login-password-toggle"));
+
+    </script>
+
+    </div>
+</div>
+</body>
+</html>
