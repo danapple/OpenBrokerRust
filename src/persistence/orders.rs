@@ -2,6 +2,7 @@ use crate::dtos::order::{is_order_status_viable, OrderStatus};
 use crate::entities::order::{Order, OrderLeg, OrderState};
 use crate::persistence::dao::{gen_dao_error, DaoError, DaoTransaction};
 use crate::time::current_time_millis;
+use log::info;
 use std::collections::HashMap;
 use std::str::FromStr;
 use strum::IntoEnumIterator;
@@ -150,23 +151,39 @@ impl<'b> DaoTransaction<'b> {
 
     pub async fn get_orders(&self,
                             account_key: &String) -> Result<HashMap<String, OrderState>, DaoError> {
-        let mut open_statuses = Vec::new();
+        let mut viable_statuses = Vec::new();
+        let mut unviable_statuses = Vec::new();
+
         for order_status in OrderStatus::iter() {
             if (is_order_status_viable(&order_status)) {
-                open_statuses.push(order_status.to_string());
+                viable_statuses.push(order_status.to_string());
+            } else {
+                unviable_statuses.push(order_status.to_string());
             }
         }
 
         let mut query_string: String = "".to_owned();
+        query_string.push_str("SELECT * FROM (");
         query_string.push_str(ORDER_QUERY);
         query_string.push_str("WHERE account.accountKey = $1 ");
-        query_string.push_str(" AND (state.updateTime > $2 OR state.orderStatus = ANY ($3)) ");
-        query_string.push_str("ORDER BY base.orderNumber DESC");
-
+        query_string.push_str(" AND (state.updateTime > $2 AND state.orderStatus = ANY ($3)) ");
+        query_string.push_str(" ORDER BY base.orderNumber DESC ");
+        query_string.push_str(" LIMIT 100");
+        query_string.push_str(" ) UNION ( ");
+        query_string.push_str(ORDER_QUERY);
+        query_string.push_str("WHERE account.accountKey = $1 ");
+        query_string.push_str(" AND state.orderStatus = ANY ($4) ");
+        query_string.push_str(" ) ORDER BY orderNumber DESC");
+        info!("query_string: {}", query_string);
         let current_time_millis = current_time_millis();
         let day_ago = current_time_millis - 86400 * 1000;
         let res = match self.transaction.query(&query_string,
-                                               &[&account_key, &day_ago, &open_statuses]).await {
+                                               &[&account_key,
+                                                   &day_ago,
+                                                   &unviable_statuses,
+                                                   &viable_statuses,
+                                                   ]
+        ).await {
             Ok(x) => x,
             Err(db_error) => { return Err(gen_dao_error("get_orders", db_error)); }
 
